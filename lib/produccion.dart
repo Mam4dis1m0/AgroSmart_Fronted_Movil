@@ -5,7 +5,26 @@ import 'ui.dart';
 
 bool get esAdmin => session.rol == 'admin';
 
-/// Producción: lotes, cultivos y cosechas.
+Future<List<MapEntry<dynamic, String>>> lotesOpc() async {
+  final ls = await Api.i.getList('/lotes');
+  return [for (final l in ls) MapEntry(l['idlote'], s(l['nombre']).isEmpty ? 'Lote #${l['idlote']}' : s(l['nombre']))];
+}
+
+Future<List<MapEntry<dynamic, String>>> palmasOpc() async {
+  final ps = await Api.i.getList('/palmas');
+  return [for (final p in ps) MapEntry(p['idpalma'], s(p['codigo']).isEmpty ? 'Palma #${p['idpalma']}' : s(p['codigo']))];
+}
+
+/// Las relaciones pueden venir como objeto anidado; el formulario necesita el id.
+Map<String, dynamic> aplanarIds(Map<String, dynamic> m, List<String> keys) {
+  final out = Map<String, dynamic>.from(m);
+  for (final k in keys) {
+    if (out[k] is Map) out[k] = (out[k] as Map)[k];
+  }
+  return out;
+}
+
+/// Producción: lotes, cultivos, cosechas y palma.
 class ProduccionPage extends StatelessWidget {
   const ProduccionPage({super.key});
   @override
@@ -80,6 +99,45 @@ class ProduccionPage extends StatelessWidget {
         },
         title: (c) => '${n(c['cantidad'])} ${s(c['unidad']).isEmpty ? 'kg' : s(c['unidad'])}',
         subtitle: (c) => 'Cultivo #${c['idcultivo']} · ${d10(c['fechacosecha'])}${s(c['calidad']).isEmpty ? '' : ' · ${s(c['calidad'])}'}',
+      ),
+      'Palmas': CrudList(
+        path: '/palmas',
+        idKey: 'idpalma',
+        singular: 'palma',
+        icon: Icons.park,
+        canEdit: esAdmin,
+        fields: () async => [
+          const FieldDef('codigo', 'Código', required: true),
+          const FieldDef('variedad', 'Variedad'),
+          const FieldDef('fechasiembra', 'Fecha de siembra', type: FT.date),
+          FieldDef('estadosanitario', 'Estado sanitario', type: FT.select, options: [
+            for (final e in ['Sano', 'En observación', 'Enfermo', 'Tratamiento']) MapEntry(e, e),
+          ]),
+          FieldDef('idlote', 'Lote', type: FT.select, options: await lotesOpc()),
+          const FieldDef('observaciones', 'Observaciones', type: FT.multiline),
+        ],
+        normalize: (p) => aplanarIds(p, ['idlote']),
+        title: (p) => s(p['codigo']).isEmpty ? 'Palma #${p['idpalma']}' : s(p['codigo']),
+        subtitle: (p) => '${s(p['variedad'])} · ${s(p['estadosanitario'])}\nSiembra: ${d10(p['fechasiembra'])}',
+      ),
+      'Prod. palma': CrudList(
+        path: '/produccion-palma',
+        idKey: 'idproduccionpalma',
+        singular: 'registro de producción',
+        icon: Icons.scale,
+        canEdit: esAdmin,
+        fields: () async => [
+          const FieldDef('fecharegistro', 'Fecha', type: FT.date, required: true),
+          const FieldDef('cantidadracimos', 'Cantidad de racimos', type: FT.number),
+          const FieldDef('pesokg', 'Peso (kg)', type: FT.number),
+          const FieldDef('calidad', 'Calidad'),
+          FieldDef('idlote', 'Lote', type: FT.select, options: await lotesOpc()),
+          FieldDef('idpalma', 'Palma (opcional)', type: FT.select, options: await palmasOpc()),
+          const FieldDef('observaciones', 'Observaciones', type: FT.multiline),
+        ],
+        normalize: (p) => aplanarIds(p, ['idlote', 'idpalma']),
+        title: (p) => '${n(p['pesokg'])} kg · ${n(p['cantidadracimos']).round()} racimos',
+        subtitle: (p) => '${d10(p['fecharegistro'])}${s(p['calidad']).isEmpty ? '' : ' · ${s(p['calidad'])}'}',
       ),
     });
   }

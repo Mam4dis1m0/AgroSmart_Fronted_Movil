@@ -87,12 +87,40 @@ class Api {
     return e.toString();
   }
 
+  /// true cuando la última lista mostrada vino del caché local (sin conexión).
+  final ValueNotifier<bool> offline = ValueNotifier(false);
+
+  /// Separa el caché por usuario y finca.
+  String cacheScope = '';
+
+  Future<void> clearCache() async {
+    final p = await SharedPreferences.getInstance();
+    for (final k in p.getKeys().where((k) => k.startsWith('cache:')).toList()) {
+      await p.remove(k);
+    }
+  }
+
+  /// GET de listas. Si no hay red, devuelve la última copia guardada (solo lectura).
   Future<List<dynamic>> getList(String path, {Map<String, dynamic>? query}) async {
-    final r = await dio.get(path, queryParameters: query);
-    final d = r.data;
-    if (d is List) return d;
-    if (d is Map && d['data'] is List) return d['data'] as List;
-    return [];
+    final key = 'cache:$cacheScope:$path:${query ?? ''}';
+    try {
+      final r = await dio.get(path, queryParameters: query);
+      final d = r.data;
+      final list = d is List ? d : (d is Map && d['data'] is List ? d['data'] as List : <dynamic>[]);
+      offline.value = false;
+      SharedPreferences.getInstance().then((p) => p.setString(key, jsonEncode(list)));
+      return list;
+    } on DioException catch (e) {
+      if (e.response == null) {
+        final p = await SharedPreferences.getInstance();
+        final raw = p.getString(key);
+        if (raw != null) {
+          offline.value = true;
+          return jsonDecode(raw) as List;
+        }
+      }
+      rethrow;
+    }
   }
 }
 
@@ -121,6 +149,7 @@ class Session extends ChangeNotifier {
         usuario = (m['usuario'] as Map?)?.cast<String, dynamic>();
         idfinca = m['idfinca'] as int?;
         fincas = ((m['fincas'] as List?) ?? []).map((e) => (e as Map).cast<String, dynamic>()).toList();
+        Api.i.cacheScope = '${usuario?['id']}_$idfinca';
       } catch (_) {}
     }
     ready = true;
@@ -128,6 +157,7 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> _save() async {
+    Api.i.cacheScope = '${usuario?['id']}_$idfinca';
     final p = await SharedPreferences.getInstance();
     await p.setString('session', jsonEncode({
       'token': Api.i.token, 'usuario': usuario, 'idfinca': idfinca, 'fincas': fincas,
@@ -136,7 +166,16 @@ class Session extends ChangeNotifier {
 
   Future<void> login(String email, String pass) async {
     final r = await Api.i.dio.post('/usuarios/login', data: {'email': email, 'contrasena': pass});
-    final d = r.data as Map<String, dynamic>;
+    await _aplicar(r.data as Map<String, dynamic>);
+  }
+
+  /// Login con Google: `credential` es el idToken (el backend lo valida con GOOGLE_CLIENT_ID).
+  Future<void> loginGoogle(String credential) async {
+    final r = await Api.i.dio.post('/usuarios/login-google', data: {'credential': credential});
+    await _aplicar(r.data as Map<String, dynamic>);
+  }
+
+  Future<void> _aplicar(Map<String, dynamic> d) async {
     Api.i.token = d['token'] as String?;
     usuario = (d['usuario'] as Map).cast<String, dynamic>();
     idfinca = d['idfinca'] as int?;
@@ -191,6 +230,7 @@ class Session extends ChangeNotifier {
     fincas = [];
     final p = await SharedPreferences.getInstance();
     await p.remove('session');
+    await Api.i.clearCache();
     notifyListeners();
   }
 }

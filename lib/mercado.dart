@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'api.dart';
 import 'main.dart';
 import 'produccion.dart';
@@ -15,6 +17,7 @@ class MercadoPage extends StatelessWidget {
       if (session.esComprador) ...{
         'Mis compras': const ComprasTab(),
         'Carrito': const CarritoTab(),
+        'Favoritos': const FavoritosTab(),
       },
       if (esAdmin) ...{
         'Mis ofertas': const MisOfertasTab(),
@@ -135,7 +138,14 @@ class _DetalleListadoPageState extends State<DetalleListadoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Oferta')),
+      appBar: AppBar(title: const Text('Oferta'), actions: [
+        if (session.esComprador)
+          IconButton(
+            tooltip: 'Guardar en favoritos (Premium)',
+            icon: const Icon(Icons.favorite_border),
+            onPressed: () => run(context, () => Api.i.dio.post('$_mkt/wishlist', data: {'idlistado': widget.id}), ok: 'Guardado en favoritos'),
+          ),
+      ]),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _f,
         builder: (c, snap) {
@@ -298,6 +308,24 @@ class MisOfertasTab extends StatelessWidget {
       title: (l) => s(l['titulo']),
       subtitle: (l) => '${s(l['estado'])} · ${n(l['volumendisponible'] ?? l['volumen'])} ${s(l['unidad'])} · ${money(l['preciounitario'])}',
       extra: (l) => [
+        RowAction('Agregar foto', (ctx, item, reload) async {
+          final actuales = ((item['fotos'] as List?) ?? []).map((e) => e.toString()).toList();
+          if (actuales.length >= 6) return snack(ctx, 'Máximo 6 fotos por oferta');
+          final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1600, imageQuality: 80);
+          if (x == null || !ctx.mounted) return;
+          final b64 = 'data:image/jpeg;base64,${base64Encode(await x.readAsBytes())}';
+          try {
+            final r = await Api.i.dio.post('$_mkt/fotos', data: {'imagen': b64});
+            await Api.i.dio.put('$_mkt/listados/${item['idlistado']}', data: {'fotos': [...actuales, s(r.data['url'])]});
+            if (ctx.mounted) snack(ctx, 'Foto agregada');
+            reload();
+          } catch (e) {
+            if (ctx.mounted) snack(ctx, Api.errorMsg(e));
+          }
+        }),
+        RowAction('Quitar todas las fotos', (ctx, item, reload) async {
+          if (await run(ctx, () => Api.i.dio.put('$_mkt/listados/${item['idlistado']}', data: {'fotos': <String>[]}), ok: 'Fotos eliminadas')) reload();
+        }),
         RowAction('Destacar (Premium)', (ctx, item, reload) async {
           if (await run(ctx, () => Api.i.dio.post('$_mkt/listados/${item['idlistado']}/destacar'), ok: 'Oferta destacada')) reload();
         }),
@@ -345,6 +373,32 @@ class VentasTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ── Favoritos (wishlist, Premium) ───────────────────────────────────────────
+class FavoritosTab extends StatelessWidget {
+  const FavoritosTab({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return ListPage(
+      loader: () => Api.i.getList('$_mkt/wishlist'),
+      empty: 'Sin favoritos (función Premium)',
+      itemBuilder: (c, w, reload) => Card(
+        child: ListTile(
+          leading: Icon(Icons.favorite, color: w['disponible'] == false ? Colors.grey : Colors.red),
+          title: Text(s(w['titulo'])),
+          subtitle: Text('${money(w['preciounitario'])} / ${s(w['unidad'])}${w['disponible'] == false ? ' · No disponible' : ''}'),
+          onTap: () => Navigator.of(c).push(MaterialPageRoute(builder: (_) => DetalleListadoPage(id: w['idlistado'] as int))),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () async {
+              if (await run(c, () => Api.i.dio.delete('$_mkt/wishlist/${w['idlistado']}'))) reload();
+            },
+          ),
+        ),
+      ),
     );
   }
 }

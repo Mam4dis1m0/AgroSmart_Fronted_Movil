@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'api.dart';
 import 'main.dart';
 import 'ui.dart';
@@ -20,6 +21,26 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       await session.login(_email.text.trim(), _pass.text);
+    } catch (e) {
+      setState(() => _error = Api.errorMsg(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // Client ID *web* de Google Cloud: flutter run --dart-define=GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+  static const _googleId = String.fromEnvironment('GOOGLE_CLIENT_ID');
+
+  Future<void> _google() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final g = GoogleSignIn(scopes: const ['email'], serverClientId: _googleId);
+      final acc = await g.signIn();
+      if (acc == null) return; // canceló
+      final auth = await acc.authentication;
+      final t = auth.idToken;
+      if (t == null) throw 'Google no devolvió credencial';
+      await session.loginGoogle(t);
     } catch (e) {
       setState(() => _error = Api.errorMsg(e));
     } finally {
@@ -174,6 +195,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  if (_googleId.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: _loading ? null : _google,
+                        icon: const Icon(Icons.g_mobiledata, size: 28),
+                        label: const Text('Continuar con Google'),
+                      ),
+                    ),
+                  ],
                   TextButton(onPressed: _olvide, child: const Text('¿Olvidaste tu contraseña?')),
                   TextButton(onPressed: _registro, child: const Text('Crear cuenta')),
                   Text('Conectando a: ${Api.i.baseUrl}',

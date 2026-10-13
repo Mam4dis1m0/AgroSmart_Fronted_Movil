@@ -24,3 +24,11 @@ o con `--dart-define=API_URL=https://tu-backend` (Render/Railway).
 ## Aún no incluido
 Palmas y producción de palma, reportes/exportar PDF, subir fotos de ofertas, login con Google,
 wishlist, mensajería/SMS, modo offline con cola de sincronización.
+
+## Añadido en la 3.ª versión
+Palmas y producción de palma · reportes (costos por cultivo + exportar CSV/Excel y compartir) ·
+fotos de ofertas (galería → Cloudinary vía backend) · favoritos (wishlist) ·
+login con Google (`--dart-define=GOOGLE_CLIENT_ID=...`, client ID *web*) ·
+modo sin conexión de solo lectura (caché de las últimas listas) con aviso en pantalla.
+
+iOS: agrega `NSPhotoLibraryUsageDescription` en Info.plist para elegir fotos.

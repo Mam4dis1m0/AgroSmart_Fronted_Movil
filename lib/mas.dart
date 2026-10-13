@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'api.dart';
 import 'main.dart';
 import 'operacion.dart';
@@ -98,6 +103,7 @@ class MasPage extends StatelessWidget {
       item(Icons.person, 'Mi perfil', const PerfilPage()),
       if (esAdmin) item(Icons.group, 'Equipo', const EquipoPage()),
       if (esAdmin) item(Icons.payments, 'Nómina', const NominaPage()),
+      if (esAdmin) item(Icons.bar_chart, 'Reportes', const ReportesPage()),
       if (esAdmin) item(Icons.workspace_premium, 'Plan y suscripción', const PlanPage()),
       item(Icons.smart_toy, 'Asistente IA', const AsistentePage()),
       item(Icons.notifications, 'Avisos', const NotificacionesList()),
@@ -455,5 +461,115 @@ class NotificacionesList extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+// ── Reportes (Premium): costos por cultivo + exportar a Excel (CSV) ─────────
+class ReportesPage extends StatefulWidget {
+  const ReportesPage({super.key});
+  @override
+  State<ReportesPage> createState() => _ReportesPageState();
+}
+
+class _ReportesPageState extends State<ReportesPage> {
+  String? _desde, _hasta;
+  late Future<List<dynamic>> _f = _cargar();
+
+  Map<String, dynamic> get _q => {if (_desde != null) 'desde': _desde, if (_hasta != null) 'hasta': _hasta};
+
+  Future<List<dynamic>> _cargar() async {
+    final r = await Api.i.dio.get('/api/v1/reportes/costos', queryParameters: _q);
+    return r.data is List ? r.data as List : [];
+  }
+
+  String _fmt(DateTime p) => '${p.year}-${p.month.toString().padLeft(2, '0')}-${p.day.toString().padLeft(2, '0')}';
+
+  Future<void> _fecha(bool desde) async {
+    final p = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2100));
+    if (p == null) return;
+    setState(() {
+      if (desde) { _desde = _fmt(p); } else { _hasta = _fmt(p); }
+      _f = _cargar();
+    });
+  }
+
+  String _errBytes(Object e) {
+    if (e is DioException && e.response?.data is List<int>) {
+      try {
+        final m = jsonDecode(utf8.decode(e.response!.data as List<int>));
+        if (m is Map && m['message'] != null) return m['message'].toString();
+      } catch (_) {}
+    }
+    return Api.errorMsg(e);
+  }
+
+  Future<void> _exportar(String tipo) async {
+    try {
+      final r = await Api.i.dio.get<List<int>>(
+        '/api/v1/reportes/exportar',
+        queryParameters: {'tipo': tipo, ..._q},
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final cd = r.headers.value('content-disposition') ?? '';
+      final name = RegExp(r'filename="([^"]+)"').firstMatch(cd)?.group(1) ?? 'reporte_$tipo.csv';
+      final dir = await getTemporaryDirectory();
+      final f = File('${dir.path}/$name');
+      await f.writeAsBytes(r.data!);
+      await Share.shareXFiles([XFile(f.path)], text: 'Reporte AgroSmart ($tipo)');
+    } catch (e) {
+      if (mounted) snack(context, _errBytes(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(padding: const EdgeInsets.all(12), children: [
+      Row(children: [
+        Expanded(child: OutlinedButton.icon(onPressed: () => _fecha(true), icon: const Icon(Icons.event), label: Text(_desde ?? 'Desde'))),
+        const SizedBox(width: 8),
+        Expanded(child: OutlinedButton.icon(onPressed: () => _fecha(false), icon: const Icon(Icons.event), label: Text(_hasta ?? 'Hasta'))),
+        if (_desde != null || _hasta != null)
+          IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _desde = null; _hasta = null; _f = _cargar(); })),
+      ]),
+      const SizedBox(height: 12),
+      Text('Exportar a Excel (CSV)', style: Theme.of(context).textTheme.titleSmall),
+      Wrap(spacing: 8, children: [
+        ActionChip(avatar: const Icon(Icons.download, size: 18), label: const Text('Gastos'), onPressed: () => _exportar('gastos')),
+        ActionChip(avatar: const Icon(Icons.download, size: 18), label: const Text('Insumos'), onPressed: () => _exportar('insumos')),
+        ActionChip(avatar: const Icon(Icons.download, size: 18), label: const Text('Cultivos'), onPressed: () => _exportar('cultivo')),
+      ]),
+      const Divider(height: 28),
+      Text('Costos por cultivo (Premium)', style: Theme.of(context).textTheme.titleMedium),
+      FutureBuilder<List<dynamic>>(
+        future: _f,
+        builder: (c, snap) {
+          if (snap.connectionState != ConnectionState.done) return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
+          if (snap.hasError) return Padding(padding: const EdgeInsets.all(16), child: Text(Api.errorMsg(snap.error!)));
+          final rows = snap.data!;
+          if (rows.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text('Sin datos en el periodo'));
+          final maxT = rows.map((r) => n(r['total'])).fold<double>(1, (a, b) => b > a ? b : a);
+          final total = rows.fold<double>(0, (a, r) => a + n(r['total']));
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text('Total del periodo: ${money(total)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            for (final r in rows)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(child: Text(s(r['cultivo']).isEmpty ? 'Cultivo #${r['idcultivo']}' : s(r['cultivo']), style: const TextStyle(fontWeight: FontWeight.bold))),
+                      Text(money(r['total']), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ]),
+                    const SizedBox(height: 6),
+                    LinearProgressIndicator(value: n(r['total']) / maxT, minHeight: 6),
+                    const SizedBox(height: 6),
+                    Text('Insumos ${money(r['costo_insumos'])} · Mano de obra ${money(r['costo_mano_obra'])}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ]),
+                ),
+              ),
+          ]);
+        },
+      ),
+    ]);
   }
 }

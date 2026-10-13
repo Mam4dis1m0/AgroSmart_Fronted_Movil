@@ -109,7 +109,21 @@ class _HomeShellState extends State<HomeShell> {
           if (session.esComprador) IconButton(tooltip: 'Salir', icon: const Icon(Icons.logout), onPressed: session.logout),
         ],
       ),
-      body: IndexedStack(index: _i, children: [for (final t in tabs) t.page]),
+      body: Column(children: [
+        ValueListenableBuilder<bool>(
+          valueListenable: Api.i.offline,
+          builder: (_, off, __) => off
+              ? Container(
+                  width: double.infinity,
+                  color: Colors.amber.shade200,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                  child: const Text('Sin conexión: mostrando los últimos datos guardados (solo lectura)',
+                      style: TextStyle(fontSize: 12), textAlign: TextAlign.center),
+                )
+              : const SizedBox.shrink(),
+        ),
+        Expanded(child: IndexedStack(index: _i, children: [for (final t in tabs) t.page])),
+      ]),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _i,
         onDestinationSelected: (v) => setState(() => _i = v),
