@@ -4,8 +4,22 @@ const _mkt = '/api/v1/marketplace';
 
 /// Marketplace: catálogo de ofertas, órdenes, carrito y favoritos.
 class MarketplaceService {
-  Future<List<Map<String, dynamic>>> listados({String? q, int limit = 30}) async {
-    final rows = await Api.i.getList('$_mkt/listados', query: {if ((q ?? '').isNotEmpty) 'q': q, 'limit': limit});
+  Future<List<Map<String, dynamic>>> listados({
+    String? q,
+    String? categoria,
+    double? lat,
+    double? lng,
+    int? radioKm,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final rows = await Api.i.getList('$_mkt/listados', query: {
+      if ((q ?? '').isNotEmpty) 'q': q,
+      if ((categoria ?? '').isNotEmpty) 'categoria': categoria,
+      if (lat != null && lng != null) ...{'lat': lat, 'lng': lng, 'radioKm': radioKm ?? 50},
+      'limit': limit,
+      'offset': offset,
+    });
     return [for (final r in rows) (r as Map).cast<String, dynamic>()];
   }
 

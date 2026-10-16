@@ -1,13 +1,13 @@
 // Datos mock EXACTOS del prototipo (carpeta agrosmart-design / src/mockData.ts),
 // mapeados a las formas que esperan las pantallas de la app.
 //
-// Con kDemoMode = true la app NO usa el backend: responde todo desde aquí.
-// Para volver a usar la API real, pon kDemoMode = false.
+// Con kDemoMode la app NO usa el backend: responde todo desde aquí.
+// Se activa solo con: flutter run --dart-define=DEMO=true
 library;
 
 import 'package:dio/dio.dart';
 
-const bool kDemoMode = true;
+const bool kDemoMode = bool.fromEnvironment('DEMO');
 
 // ── Sesión (usuario + fincas del prototipo) ─────────────────────────────────
 List<Map<String, dynamic>> demoFincas() => [
@@ -403,12 +403,14 @@ List<Map<String, dynamic>> _planes() => [
     ];
 
 Map<String, dynamic> _suscripcion() => {
-      'plan': 'Premium (Plan Pro)',
-      'estado': 'ACTIVA',
-      'fechainicio': '2026-10-01',
-      'fechafin': '2026-11-01',
-      'renovacionautomatica': true,
-      'preciomensual': 49900,
+      'suscripcion': {
+        'plan': 'PREMIUM',
+        'estado': 'ACTIVA',
+        'fechainicio': '2026-10-01',
+        'fechafin': '2026-11-01',
+        'renovacionautomatica': true,
+      },
+      'planEfectivo': {'codigo': 'PREMIUM', 'maxcultivos': null, 'maxempleados': null, 'maxfincas': null, 'comisionmarketplace': 3},
     };
 
 List<Map<String, dynamic>> _auditoria() => [
@@ -703,14 +705,40 @@ Object? demoGet(String path, Map<String, dynamic> query) {
       return _carrito();
     case '/api/v1/marketplace/wishlist':
       return _wishlist();
+    case '/notificaciones/no-leidas':
+      return _notificaciones().where((n) => n['leida'] != true).toList();
+    case '/api/v1/mensajeria/no-leidos':
+      return {'total': 0};
+    case '/api/v1/mensajeria/hilos':
+    case '/api/v1/insumos/compras':
+    case '/api/v1/suscripcion/pagos':
+      return <Map<String, dynamic>>[];
+    case '/usuarios/comprador/perfil':
+      return {'ubicacion': 'Santa Marta, Magdalena', 'radioalertaskm': 50, 'notificaciones': true};
   }
-  final detalle = RegExp(r'^/api/v1/marketplace/listados/(\d+)$').firstMatch(path);
-  if (detalle != null) {
-    final id = int.parse(detalle.group(1)!);
-    for (final l in _listados()) {
-      if (l['idlistado'] == id) return l;
+  if (path.startsWith('/detalle-tarea/tarea/')) return <Map<String, dynamic>>[];
+  if (RegExp(r'^/usuarios/\d+$').hasMatch(path)) {
+    final u = demoUsuario();
+    return {...u, 'primernombre': u['nombre'], 'primerapellido': u['apellido'], 'telefono': '300 123 4567', 'cedula': '1065000000'};
+  }
+  final nomina = RegExp(r'^/api/v1/nomina/(\d+)$').firstMatch(path);
+  if (nomina != null) {
+    final id = int.parse(nomina.group(1)!);
+    final n = _nomina().firstWhere((x) => x['idnomina'] == id, orElse: () => _nomina().first);
+    return {...n, 'detalles': <Map<String, dynamic>>[]};
+  }
+  // Detalle genérico: /recurso/{id} se resuelve buscando en la lista /recurso.
+  final m = RegExp(r'^(.+)/(\d+)$').firstMatch(path);
+  if (m != null) {
+    final lista = demoGet(m.group(1)!, const {});
+    final id = int.parse(m.group(2)!);
+    if (lista is List && lista.isNotEmpty) {
+      for (final it in lista.cast<Map<String, dynamic>>()) {
+        final idKey = it.keys.firstWhere((k) => k.startsWith('id'), orElse: () => 'id');
+        if (it[idKey] == id) return it;
+      }
+      return lista.first;
     }
-    return _listados().first;
   }
   return null;
 }

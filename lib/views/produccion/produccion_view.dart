@@ -13,29 +13,36 @@ Map<String, dynamic> aplanarIds(Map<String, dynamic> m, List<String> keys) {
   return out;
 }
 
+String _relNombre(dynamic v, String campo) => v is Map ? s(v[campo]) : '';
+
 /// Producción: lotes, cultivos, cosechas y palma.
 class ProduccionPage extends StatelessWidget {
-  const ProduccionPage({super.key});
+  final int initialIndex;
+  const ProduccionPage({super.key, this.initialIndex = 0});
+
   @override
   Widget build(BuildContext context) {
-    return TabsPage(tabs: {
+    return TabsPage(initialIndex: initialIndex, tabs: {
       'Lotes': CrudList(
         path: '/lotes',
         idKey: 'idlote',
         singular: 'lote',
         icon: Icons.landscape,
         canEdit: esAdmin,
+        empty: 'Aún no hay lotes.\nDivide tu finca en lotes para organizar los cultivos.',
         fields: () async => const [
-          FieldDef('nombre', 'Nombre', required: true),
-          FieldDef('areahectareas', 'Área (hectáreas)', type: FT.number),
+          FieldDef('nombre', 'Nombre', required: true, minLength: 2),
+          FieldDef('areahectareas', 'Área (hectáreas)', type: FT.number, min: 0),
           FieldDef('ubicacion', 'Ubicación'),
           FieldDef('descripcion', 'Descripción', type: FT.multiline),
         ],
         title: (l) => s(l['nombre']).isEmpty ? 'Lote #${l['idlote']}' : s(l['nombre']),
         subtitle: (l) {
           final cs = (l['cultivos'] as List?) ?? [];
-          return '${n(l['areahectareas'])} ha · ${s(l['ubicacion'])}'
-              '${cs.isNotEmpty ? '\nCultivos: ${cs.map((x) => x['tipo']).join(', ')}' : ''}';
+          return juntar([
+            if (n(l['areahectareas']) > 0) '${cant(l['areahectareas'])} ha',
+            s(l['ubicacion']),
+          ]) + (cs.isNotEmpty ? '\nCultivos: ${cs.map((x) => x['tipo']).join(', ')}' : '');
         },
       ),
       'Cultivos': CrudList(
@@ -44,24 +51,25 @@ class ProduccionPage extends StatelessWidget {
         singular: 'cultivo',
         icon: Icons.grass,
         canEdit: esAdmin,
-        fields: () async {
-          return [
-            const FieldDef('tipo', 'Tipo (maíz, café, palma…)', required: true),
-            const FieldDef('nombrelote', 'Nombre / referencia'),
-            FieldDef('idlote', 'Lote', type: FT.select, options: await produccionService.lotesOpc()),
-            const FieldDef('fechasiembra', 'Fecha de siembra', type: FT.date),
-            const FieldDef('fechacosechaestimada', 'Cosecha estimada', type: FT.date),
-          ];
-        },
-        normalize: (c) {
-          final m = Map<String, dynamic>.from(c);
-          if (m['idlote'] is Map) m['idlote'] = (m['idlote'] as Map)['idlote'];
-          return m;
-        },
+        empty: 'Aún no hay cultivos registrados',
+        fields: () async => [
+          const FieldDef('tipo', 'Tipo (maíz, café, palma…)', required: true, minLength: 2),
+          const FieldDef('nombrelote', 'Nombre / referencia'),
+          FieldDef('idlote', 'Lote', type: FT.select, options: await produccionService.lotesOpc()),
+          const FieldDef('fechasiembra', 'Fecha de siembra', type: FT.date),
+          const FieldDef('fechacosechaestimada', 'Cosecha estimada', type: FT.date, after: 'fechasiembra'),
+        ],
+        normalize: (c) => aplanarIds(c, ['idlote']),
         title: (c) => s(c['tipo']).isEmpty ? 'Cultivo #${c['idcultivo']}' : s(c['tipo']),
         subtitle: (c) {
-          final lote = c['idlote'] is Map ? s((c['idlote'] as Map)['nombre']) : s(c['nombrelote']);
-          return 'Lote: ${lote.isEmpty ? '—' : lote}\nSiembra: ${d10(c['fechasiembra'])} · Cosecha est.: ${d10(c['fechacosechaestimada'])}';
+          final lote = _relNombre(c['idlote'], 'nombre');
+          return [
+            juntar([s(c['nombrelote']), if (lote.isNotEmpty) 'Lote $lote']),
+            juntar([
+              if (s(c['fechasiembra']).isNotEmpty) 'Siembra ${fecha(c['fechasiembra'])}',
+              if (s(c['fechacosechaestimada']).isNotEmpty) 'Cosecha est. ${fecha(c['fechacosechaestimada'])}',
+            ]),
+          ].where((x) => x.isNotEmpty).join('\n');
         },
         badge: (c) => CropBadge(s(c['tipo'])),
       ),
@@ -69,27 +77,36 @@ class ProduccionPage extends StatelessWidget {
         path: '/api/v1/cosechas',
         idKey: 'idcosecha',
         singular: 'cosecha',
+        femenino: true,
         icon: Icons.agriculture,
         canEdit: esAdmin,
-        fields: () async {
-          return [
-            FieldDef('idcultivo', 'Cultivo', type: FT.select, required: true, onlyCreate: true, options: await produccionService.cultivosOpc()),
-            const FieldDef('fechacosecha', 'Fecha', type: FT.date, required: true),
-            const FieldDef('cantidad', 'Cantidad', type: FT.number, required: true),
-            const FieldDef('unidad', 'Unidad (kg, t, bultos…)'),
-            const FieldDef('calidad', 'Calidad'),
-            const FieldDef('observaciones', 'Observaciones', type: FT.multiline),
-          ];
+        empty: 'Aún no registras cosechas',
+        fields: () async => [
+          FieldDef('idcultivo', 'Cultivo', type: FT.select, required: true, onlyCreate: true, options: await produccionService.cultivosOpc()),
+          const FieldDef('fechacosecha', 'Fecha', type: FT.date, required: true),
+          const FieldDef('cantidad', 'Cantidad', type: FT.number, required: true, min: 0),
+          const FieldDef('unidad', 'Unidad (kg, t, bultos…)'),
+          const FieldDef('calidad', 'Calidad'),
+          const FieldDef('observaciones', 'Observaciones', type: FT.multiline),
+        ],
+        title: (c) => '${cant(c['cantidad'])} ${s(c['unidad']).isEmpty ? 'kg' : s(c['unidad'])}',
+        subtitle: (c) {
+          final cult = c['idcultivo'] is Map ? s((c['idcultivo'] as Map)['tipo']) : '';
+          return juntar([
+            cult.isEmpty ? 'Cultivo #${c['idcultivo'] is Map ? (c['idcultivo'] as Map)['idcultivo'] : c['idcultivo']}' : cult,
+            fecha(c['fechacosecha']),
+            s(c['calidad']),
+          ]);
         },
-        title: (c) => '${n(c['cantidad'])} ${s(c['unidad']).isEmpty ? 'kg' : s(c['unidad'])}',
-        subtitle: (c) => 'Cultivo #${c['idcultivo']} · ${d10(c['fechacosecha'])}${s(c['calidad']).isEmpty ? '' : ' · ${s(c['calidad'])}'}',
       ),
       'Palmas': CrudList(
         path: '/palmas',
         idKey: 'idpalma',
         singular: 'palma',
+        femenino: true,
         icon: Icons.park,
         canEdit: esAdmin,
+        empty: 'Aún no hay palmas registradas',
         fields: () async => [
           const FieldDef('codigo', 'Código', required: true),
           const FieldDef('variedad', 'Variedad'),
@@ -102,27 +119,36 @@ class ProduccionPage extends StatelessWidget {
         ],
         normalize: (p) => aplanarIds(p, ['idlote']),
         title: (p) => s(p['codigo']).isEmpty ? 'Palma #${p['idpalma']}' : s(p['codigo']),
-        subtitle: (p) => '${s(p['variedad'])}${s(p['variedad']).isEmpty ? '' : ' · '}Siembra: ${d10(p['fechasiembra'])}',
-        badge: (p) => StatusBadge(s(p['estadosanitario'])),
+        subtitle: (p) => juntar([
+          s(p['variedad']),
+          _relNombre(p['idlote'], 'nombre').isEmpty ? '' : 'Lote ${_relNombre(p['idlote'], 'nombre')}',
+          if (s(p['fechasiembra']).isNotEmpty) 'Siembra ${fecha(p['fechasiembra'])}',
+        ]),
+        badge: (p) => s(p['estadosanitario']).isEmpty ? null : StatusBadge(s(p['estadosanitario'])),
       ),
-      'Prod. palma': CrudList(
+      'Producción de palma': CrudList(
         path: '/produccion-palma',
         idKey: 'idproduccionpalma',
         singular: 'registro de producción',
         icon: Icons.scale,
         canEdit: esAdmin,
+        empty: 'Aún no hay registros de producción de palma',
         fields: () async => [
           const FieldDef('fecharegistro', 'Fecha', type: FT.date, required: true),
-          const FieldDef('cantidadracimos', 'Cantidad de racimos', type: FT.number),
-          const FieldDef('pesokg', 'Peso (kg)', type: FT.number),
+          const FieldDef('cantidadracimos', 'Cantidad de racimos', type: FT.number, min: 0),
+          const FieldDef('pesokg', 'Peso (kg)', type: FT.number, min: 0),
           const FieldDef('calidad', 'Calidad'),
           FieldDef('idlote', 'Lote', type: FT.select, options: await produccionService.lotesOpc()),
           FieldDef('idpalma', 'Palma (opcional)', type: FT.select, options: await produccionService.palmasOpc()),
           const FieldDef('observaciones', 'Observaciones', type: FT.multiline),
         ],
         normalize: (p) => aplanarIds(p, ['idlote', 'idpalma']),
-        title: (p) => '${n(p['pesokg'])} kg · ${n(p['cantidadracimos']).round()} racimos',
-        subtitle: (p) => '${d10(p['fecharegistro'])}${s(p['calidad']).isEmpty ? '' : ' · ${s(p['calidad'])}'}',
+        title: (p) => '${cant(p['pesokg'])} kg · ${cant(n(p['cantidadracimos']).round())} racimos',
+        subtitle: (p) => juntar([
+          fecha(p['fecharegistro']),
+          _relNombre(p['idlote'], 'nombre').isEmpty ? '' : 'Lote ${_relNombre(p['idlote'], 'nombre')}',
+          s(p['calidad']),
+        ]),
       ),
     });
   }

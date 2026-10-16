@@ -7,12 +7,16 @@ class PlanService {
     return [for (final r in rows) (r as Map).cast<String, dynamic>()];
   }
 
-  Future<Map<String, dynamic>?> suscripcion() async {
-    try {
-      final r = await Api.i.dio.get('/api/v1/suscripcion');
-      if (r.data is Map) return (r.data as Map).cast<String, dynamic>();
-    } catch (_) {}
-    return null;
+  /// GET /api/v1/suscripcion -> { suscripcion: {...}|null, planEfectivo: { codigo, maxcultivos, ... } }
+  Future<Map<String, dynamic>> suscripcion() async {
+    final r = await Api.i.dio.get('/api/v1/suscripcion');
+    return r.data is Map ? (r.data as Map).cast<String, dynamic>() : const {};
+  }
+
+  /// GET /api/v1/suscripcion/pagos
+  Future<List<Map<String, dynamic>>> pagos() async {
+    final rows = await Api.i.getList('/api/v1/suscripcion/pagos');
+    return [for (final r in rows) (r as Map).cast<String, dynamic>()];
   }
 
   Future<void> contratar() async {

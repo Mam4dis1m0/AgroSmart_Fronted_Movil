@@ -11,8 +11,10 @@ class ChatService {
       'system': _system,
       'messages': messages,
     });
-    final content = r.data['content'] as List;
-    if (content.isEmpty) return '';
-    return '${content.first['text']}';
+    final d = r.data;
+    final content = d is Map ? d['content'] : null;
+    if (content is List && content.isNotEmpty) return '${content.first['text'] ?? ''}';
+    if (d is Map && d['message'] != null) return '${d['message']}';
+    return '';
   }
 }

@@ -24,6 +24,12 @@ class AuthService {
     return (d['usuario'] as Map?)?.cast<String, dynamic>() ?? d;
   }
 
+  /// GET /usuarios/{id} -> datos completos (primer/segundo nombre, cédula, teléfono…)
+  Future<Map<String, dynamic>> usuario(int id) async {
+    final r = await Api.i.dio.get('/usuarios/$id');
+    return (r.data as Map).cast<String, dynamic>();
+  }
+
   /// PUT /usuarios/{id}
   Future<void> actualizarUsuario(int id, Map<String, dynamic> data) async {
     await Api.i.dio.put('/usuarios/$id', data: data);
@@ -32,5 +38,22 @@ class AuthService {
   /// PUT /usuarios/{id}/password
   Future<void> cambiarContrasena(int id, Map<String, dynamic> data) async {
     await Api.i.dio.put('/usuarios/$id/password', data: data);
+  }
+
+  /// PUT /usuarios/{id}/foto-perfil  (imagen como data URL base64) -> url
+  Future<String?> subirFotoPerfil(int id, String dataUrl) async {
+    final r = await Api.i.dio.put('/usuarios/$id/foto-perfil', data: {'imagen': dataUrl});
+    return r.data is Map ? r.data['fotoperfil']?.toString() : null;
+  }
+
+  /// GET /usuarios/comprador/perfil
+  Future<Map<String, dynamic>> perfilComprador() async {
+    final r = await Api.i.dio.get('/usuarios/comprador/perfil');
+    return (r.data as Map).cast<String, dynamic>();
+  }
+
+  /// PUT /usuarios/comprador/ubicacion
+  Future<void> actualizarUbicacionComprador(Map<String, dynamic> data) async {
+    await Api.i.dio.put('/usuarios/comprador/ubicacion', data: data);
   }
 }

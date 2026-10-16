@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/theme.dart';
 import 'design.dart';
@@ -8,9 +9,27 @@ String s(dynamic v) => v == null ? '' : v.toString();
 
 double n(dynamic v) => v is num ? v.toDouble() : double.tryParse(s(v)) ?? 0;
 
+/// Fecha en formato de API (yyyy-mm-dd), para formularios.
 String d10(dynamic v) {
   final x = s(v);
   return x.length >= 10 ? x.substring(0, 10) : x;
+}
+
+String ymd(DateTime p) =>
+    '${p.year}-${p.month.toString().padLeft(2, '0')}-${p.day.toString().padLeft(2, '0')}';
+
+/// Fecha legible en español: "15 oct 2026". Vacío si no hay fecha.
+String fecha(dynamic v, {bool hora = false}) {
+  final t = DateTime.tryParse(s(v));
+  if (t == null) return d10(v);
+  final l = t.toLocal();
+  return DateFormat(hora ? 'd MMM y · h:mm a' : 'd MMM y', 'es').format(l);
+}
+
+/// Número sin ".0" sobrante y con coma decimal: 12 · 12,5 · 1.250
+String cant(dynamic v) {
+  final x = n(v);
+  return NumberFormat(x == x.roundToDouble() ? '#,##0' : '#,##0.##', 'es').format(x);
 }
 
 String money(dynamic v) {
@@ -24,18 +43,32 @@ String money(dynamic v) {
   return '${neg ? '-' : ''}\$ $b';
 }
 
+/// Une partes no vacías con " · ".
+String juntar(Iterable<String> partes) => partes.where((p) => p.trim().isNotEmpty).join(' · ');
+
 void snack(BuildContext c, String m) {
   if (c.mounted) ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m)));
 }
 
-Future<bool> confirmar(BuildContext c, String msg) async {
+Future<bool> confirmar(
+  BuildContext c,
+  String msg, {
+  String titulo = '¿Estás seguro?',
+  String ok = 'Aceptar',
+  bool destructivo = false,
+}) async {
   final r = await showDialog<bool>(
     context: c,
     builder: (ctx) => AlertDialog(
+      title: Text(titulo),
       content: Text(msg),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Aceptar')),
+        FilledButton(
+          style: destructivo ? FilledButton.styleFrom(backgroundColor: AgroColors.danger) : null,
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(ok),
+        ),
       ],
     ),
   );
@@ -44,24 +77,39 @@ Future<bool> confirmar(BuildContext c, String msg) async {
 
 /// Ejecuta una llamada a la API mostrando el error o un mensaje de éxito.
 Future<bool> run(BuildContext c, Future<dynamic> Function() f, {String? ok}) async {
+  final m = ScaffoldMessenger.maybeOf(c);
+  void show(String t) => m?.showSnackBar(SnackBar(content: Text(t)));
   try {
     await f();
-    if (ok != null) snack(c, ok);
+    if (ok != null) show(ok);
     return true;
   } catch (e) {
-    snack(c, Api.errorMsg(e));
+    show(Api.errorMsg(e));
     return false;
   }
 }
 
-Future<void> pushPage(BuildContext c, String title, Widget body, {List<Widget>? actions}) {
-  return Navigator.of(c).push(MaterialPageRoute(
+/// Carga algo (p. ej. las opciones de un formulario); si falla muestra el error y devuelve null.
+Future<T?> cargar<T>(BuildContext c, Future<T> Function() f) async {
+  final m = ScaffoldMessenger.maybeOf(c);
+  try {
+    return await f();
+  } catch (e) {
+    m?.showSnackBar(SnackBar(content: Text(Api.errorMsg(e))));
+    return null;
+  }
+}
+
+Future<T?> pushPage<T>(BuildContext c, String title, Widget body, {List<Widget>? actions}) {
+  return Navigator.of(c).push<T>(MaterialPageRoute(
     builder: (_) => Scaffold(appBar: AppBar(title: Text(title), actions: actions), body: body),
   ));
 }
 
 // ── Formularios genéricos ───────────────────────────────────────────────────
-enum FT { text, multiline, number, date, password, email, select }
+enum FT { text, multiline, number, date, password, email, select, phone }
+
+final _emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
 class FieldDef {
   final String key;
@@ -71,6 +119,18 @@ class FieldDef {
   final bool onlyCreate;
   final bool onlyEdit;
   final List<MapEntry<dynamic, String>> options;
+  final int? minLength;
+  final String? helper;
+
+  /// Para contraseñas: clave del campo que este debe repetir (no se envía al backend).
+  final String? matches;
+
+  /// Para fechas: clave de otra fecha que esta no puede preceder.
+  final String? after;
+
+  /// Para números: valor mínimo permitido.
+  final num? min;
+
   const FieldDef(
     this.key,
     this.label, {
@@ -79,6 +139,11 @@ class FieldDef {
     this.onlyCreate = false,
     this.onlyEdit = false,
     this.options = const [],
+    this.minLength,
+    this.helper,
+    this.matches,
+    this.after,
+    this.min,
   });
 }
 
@@ -88,12 +153,19 @@ Future<Map<String, dynamic>?> showForm(
   List<FieldDef> fields, {
   Map<String, dynamic>? initial,
   String okLabel = 'Guardar',
+  bool? edit,
 }) {
   return showModalBottomSheet<Map<String, dynamic>>(
     context: c,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (_) => _FormSheet(title: title, fields: fields, initial: initial ?? const {}, okLabel: okLabel),
+    builder: (_) => _FormSheet(
+      title: title,
+      fields: fields,
+      initial: initial ?? const {},
+      okLabel: okLabel,
+      edit: edit ?? (initial != null && initial.isNotEmpty),
+    ),
   );
 }
 
@@ -102,7 +174,8 @@ class _FormSheet extends StatefulWidget {
   final String okLabel;
   final List<FieldDef> fields;
   final Map<String, dynamic> initial;
-  const _FormSheet({required this.title, required this.fields, required this.initial, required this.okLabel});
+  final bool edit;
+  const _FormSheet({required this.title, required this.fields, required this.initial, required this.okLabel, required this.edit});
   @override
   State<_FormSheet> createState() => _FormSheetState();
 }
@@ -110,23 +183,31 @@ class _FormSheet extends StatefulWidget {
 class _FormSheetState extends State<_FormSheet> {
   final _ctrl = <String, TextEditingController>{};
   final _sel = <String, dynamic>{};
+  final _hide = <String, bool>{};
   final _key = GlobalKey<FormState>();
   late final List<FieldDef> _fields;
-  late final bool _edit;
 
   @override
   void initState() {
     super.initState();
-    _edit = widget.initial.isNotEmpty;
-    _fields = widget.fields.where((f) => !(f.onlyCreate && _edit) && !(f.onlyEdit && !_edit)).toList();
+    final edit = widget.edit;
+    _fields = widget.fields.where((f) => !(f.onlyCreate && edit) && !(f.onlyEdit && !edit)).toList();
     for (final f in _fields) {
       final v = widget.initial[f.key];
       if (f.type == FT.select) {
         _sel[f.key] = f.options.any((o) => o.key == v) ? v : null;
       } else {
-        _ctrl[f.key] = TextEditingController(text: f.type == FT.date ? d10(v) : s(v));
+        _ctrl[f.key] = TextEditingController(
+          text: f.type == FT.date ? d10(v) : (f.type == FT.number && v != null ? _numTxt(v) : s(v)),
+        );
+        if (f.type == FT.password) _hide[f.key] = true;
       }
     }
+  }
+
+  static String _numTxt(dynamic v) {
+    final x = n(v);
+    return x == x.roundToDouble() ? x.round().toString() : x.toString();
   }
 
   @override
@@ -137,16 +218,40 @@ class _FormSheetState extends State<_FormSheet> {
     super.dispose();
   }
 
-  String? _req(FieldDef f, String? v) => f.required && (v == null || v.trim().isEmpty) ? 'Requerido' : null;
+  String? _validar(FieldDef f, String? raw) {
+    final v = (raw ?? '').trim();
+    if (v.isEmpty) return f.required ? 'Requerido' : null;
+    if (f.minLength != null && v.length < f.minLength!) return 'Mínimo ${f.minLength} caracteres';
+    switch (f.type) {
+      case FT.email:
+        if (!_emailRe.hasMatch(v)) return 'Correo inválido';
+      case FT.number:
+        final x = num.tryParse(v.replaceAll(',', '.'));
+        if (x == null) return 'Ingresa un número válido';
+        if (f.min != null && x < f.min!) return 'Debe ser mayor o igual a ${f.min}';
+      case FT.phone:
+        if (!RegExp(r'^[0-9+\s-]{7,15}$').hasMatch(v)) return 'Teléfono inválido';
+      case FT.date:
+        if (f.after != null) {
+          final otra = DateTime.tryParse(_ctrl[f.after]?.text ?? '');
+          final esta = DateTime.tryParse(v);
+          if (otra != null && esta != null && esta.isBefore(otra)) return 'No puede ser anterior a la fecha inicial';
+        }
+      default:
+        break;
+    }
+    if (f.matches != null && v != _ctrl[f.matches]?.text.trim()) return 'Las contraseñas no coinciden';
+    return null;
+  }
 
-  Widget _field(FieldDef f) {
-    const border = OutlineInputBorder();
+  Widget _field(FieldDef f, bool last) {
+    final action = last ? TextInputAction.done : TextInputAction.next;
     switch (f.type) {
       case FT.select:
         return DropdownButtonFormField<dynamic>(
-          value: _sel[f.key],
+          initialValue: _sel[f.key],
           isExpanded: true,
-          decoration: InputDecoration(labelText: f.label, border: border),
+          decoration: InputDecoration(labelText: f.label, helperText: f.helper),
           items: [
             for (final o in f.options)
               DropdownMenuItem<dynamic>(value: o.key, child: Text(o.value, overflow: TextOverflow.ellipsis)),
@@ -155,37 +260,65 @@ class _FormSheetState extends State<_FormSheet> {
           validator: (v) => f.required && v == null ? 'Requerido' : null,
         );
       case FT.date:
+        final ctrl = _ctrl[f.key]!;
         return TextFormField(
-          controller: _ctrl[f.key],
+          controller: ctrl,
           readOnly: true,
-          decoration: InputDecoration(labelText: f.label, border: border, suffixIcon: const Icon(Icons.calendar_today)),
-          validator: (v) => _req(f, v),
+          decoration: InputDecoration(
+            labelText: f.label,
+            helperText: f.helper,
+            suffixIcon: ctrl.text.isEmpty || f.required
+                ? const Icon(Icons.calendar_today)
+                : IconButton(
+                    tooltip: 'Quitar fecha',
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => setState(ctrl.clear),
+                  ),
+          ),
+          validator: (v) => _validar(f, v),
           onTap: () async {
-            final init = DateTime.tryParse(_ctrl[f.key]!.text) ?? DateTime.now();
+            final init = DateTime.tryParse(ctrl.text) ?? DateTime.now();
             final p = await showDatePicker(
               context: context,
               initialDate: init,
-              firstDate: DateTime(2000),
+              firstDate: DateTime(1990),
               lastDate: DateTime(2100),
             );
-            if (p != null) {
-              _ctrl[f.key]!.text =
-                  '${p.year}-${p.month.toString().padLeft(2, '0')}-${p.day.toString().padLeft(2, '0')}';
-            }
+            if (p != null && mounted) setState(() => ctrl.text = ymd(p));
           },
         );
       default:
+        final pass = f.type == FT.password;
         return TextFormField(
           controller: _ctrl[f.key],
-          obscureText: f.type == FT.password,
+          obscureText: pass && (_hide[f.key] ?? true),
           maxLines: f.type == FT.multiline ? 3 : 1,
-          keyboardType: f.type == FT.number
-              ? const TextInputType.numberWithOptions(decimal: true)
-              : f.type == FT.email
-                  ? TextInputType.emailAddress
-                  : null,
-          decoration: InputDecoration(labelText: f.label, border: border),
-          validator: (v) => _req(f, v),
+          textInputAction: f.type == FT.multiline ? TextInputAction.newline : action,
+          onFieldSubmitted: last ? (_) => _submit() : null,
+          keyboardType: switch (f.type) {
+            FT.number => const TextInputType.numberWithOptions(decimal: true),
+            FT.email => TextInputType.emailAddress,
+            FT.phone => TextInputType.phone,
+            FT.multiline => TextInputType.multiline,
+            _ => null,
+          },
+          autofillHints: switch (f.type) {
+            FT.email => const [AutofillHints.email],
+            FT.phone => const [AutofillHints.telephoneNumber],
+            _ => null,
+          },
+          decoration: InputDecoration(
+            labelText: f.label,
+            helperText: f.helper,
+            suffixIcon: pass
+                ? IconButton(
+                    tooltip: (_hide[f.key] ?? true) ? 'Mostrar' : 'Ocultar',
+                    icon: Icon((_hide[f.key] ?? true) ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () => setState(() => _hide[f.key] = !(_hide[f.key] ?? true)),
+                  )
+                : null,
+          ),
+          validator: (v) => _validar(f, v),
         );
     }
   }
@@ -194,121 +327,214 @@ class _FormSheetState extends State<_FormSheet> {
     if (!_key.currentState!.validate()) return;
     final out = <String, dynamic>{};
     for (final f in _fields) {
+      if (f.matches != null) continue;
       if (f.type == FT.select) {
         if (_sel[f.key] != null) out[f.key] = _sel[f.key];
         continue;
       }
       final t = _ctrl[f.key]!.text.trim();
-      if (t.isEmpty) continue;
-      out[f.key] = f.type == FT.number ? (num.tryParse(t.replaceAll(',', '.')) ?? t) : t;
+      if (t.isEmpty) {
+        // En edición, una fecha borrada se envía como null para limpiarla.
+        if (widget.edit && f.type == FT.date && s(widget.initial[f.key]).isNotEmpty) out[f.key] = null;
+        continue;
+      }
+      out[f.key] = f.type == FT.number ? num.parse(t.replaceAll(',', '.')) : t;
     }
     Navigator.pop(context, out);
   }
 
   @override
   Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        child: Form(
-          key: _key,
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Center(
-              child: Container(
-                width: 44,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(4)),
-              ),
-            ),
-            Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AgroColors.textDark)),
-            const SizedBox(height: 16),
-            for (final f in _fields) Padding(padding: const EdgeInsets.only(bottom: 12), child: _field(f)),
-            FilledButton(onPressed: _submit, child: Text(widget.okLabel)),
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Center(
+          child: Container(
+            width: 44,
+            height: 4,
+            margin: const EdgeInsets.only(top: 10, bottom: 12),
+            decoration: BoxDecoration(color: AgroColors.handle, borderRadius: BorderRadius.circular(4)),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+          child: Row(children: [
+            Expanded(child: Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AgroColors.textDark))),
+            IconButton(tooltip: 'Cerrar', icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
           ]),
         ),
-      ),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Form(
+              key: _key,
+              child: AutofillGroup(
+                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  for (var i = 0; i < _fields.length; i++)
+                    Padding(padding: const EdgeInsets.only(bottom: 12), child: _field(_fields[i], i == _fields.length - 1)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+        // El botón queda fijo abajo aunque el formulario sea largo.
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: FilledButton(onPressed: _submit, child: Text(widget.okLabel)),
+          ),
+        ),
+      ]),
     );
   }
 }
 
 // ── Listas ──────────────────────────────────────────────────────────────────
+typedef ItemBuilder = Widget Function(BuildContext, Map<String, dynamic>, VoidCallback reload);
+
 class AsyncList extends StatefulWidget {
   final Future<List<dynamic>> Function() loader;
-  final Widget Function(BuildContext, Map<String, dynamic>, VoidCallback reload) itemBuilder;
+  final ItemBuilder itemBuilder;
   final String empty;
+  final IconData emptyIcon;
+  final Widget? emptyAction;
   final Widget? header;
-  const AsyncList({super.key, required this.loader, required this.itemBuilder, this.empty = 'Sin registros', this.header});
+
+  /// Filtro local opcional (p. ej. chips de estado) aplicado sobre lo cargado.
+  final bool Function(Map<String, dynamic>)? filter;
+  const AsyncList({
+    super.key,
+    required this.loader,
+    required this.itemBuilder,
+    this.empty = 'Sin registros',
+    this.emptyIcon = Icons.inbox_outlined,
+    this.emptyAction,
+    this.header,
+    this.filter,
+  });
   @override
   State<AsyncList> createState() => AsyncListState();
 }
 
-class AsyncListState extends State<AsyncList> {
-  late Future<List<dynamic>> _f = widget.loader();
+class AsyncListState extends State<AsyncList> with AutomaticKeepAliveClientMixin {
+  List<Map<String, dynamic>>? _data;
+  Object? _error;
+  bool _loading = false;
 
-  void reload() => setState(() => _f = widget.loader());
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    reload();
+  }
+
+  /// Recarga conservando la lista actual en pantalla mientras llega la nueva.
+  Future<void> reload() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      final rows = await widget.loader();
+      if (!mounted) return;
+      setState(() {
+        _data = [for (final r in rows) (r as Map).cast<String, dynamic>()];
+        _error = null;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<dynamic>>(
-      future: _f,
-      builder: (ctx, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snap.hasError) {
-          return AgroError(message: Api.errorMsg(snap.error!), onRetry: reload);
-        }
-        final items = snap.data ?? [];
-        return RefreshIndicator(
-          onRefresh: () async {
-            reload();
-            await _f;
-          },
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
-            children: [
-              if (widget.header != null) ...[widget.header!, const SizedBox(height: 12)],
-              if (items.isEmpty) AgroEmpty(message: widget.empty),
-              for (final it in items)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: widget.itemBuilder(ctx, (it as Map).cast<String, dynamic>(), reload),
-                ),
-            ],
-          ),
-        );
-      },
-    );
+    super.build(context);
+    if (_data == null) {
+      if (_error != null) return AgroError(message: Api.errorMsg(_error!), onRetry: reload);
+      return const Center(child: CircularProgressIndicator());
+    }
+    final items = widget.filter == null ? _data! : _data!.where(widget.filter!).toList();
+    return Stack(children: [
+      RefreshIndicator(
+        onRefresh: reload,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+          children: [
+            if (widget.header != null) ...[widget.header!, const SizedBox(height: 12)],
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: AgroAlert(message: Api.errorMsg(_error!), action: 'Reintentar', onAction: reload),
+              ),
+            if (items.isEmpty) AgroEmpty(icon: widget.emptyIcon, message: widget.empty, action: widget.emptyAction),
+            for (final it in items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: widget.itemBuilder(context, it, reload),
+              ),
+          ],
+        ),
+      ),
+      if (_loading) const Positioned(top: 0, left: 0, right: 0, child: LinearProgressIndicator(minHeight: 2)),
+    ]);
   }
 }
 
 /// Lista + botón "+" opcional.
 class ListPage extends StatefulWidget {
   final Future<List<dynamic>> Function() loader;
-  final Widget Function(BuildContext, Map<String, dynamic>, VoidCallback reload) itemBuilder;
+  final ItemBuilder itemBuilder;
   final String empty;
+  final IconData emptyIcon;
   final Future<void> Function(VoidCallback reload)? onAdd;
   final String addLabel;
-  const ListPage({super.key, required this.loader, required this.itemBuilder, this.empty = 'Sin registros', this.onAdd, this.addLabel = 'Nuevo'});
+  final Widget? header;
+  final bool Function(Map<String, dynamic>)? filter;
+  const ListPage({
+    super.key,
+    required this.loader,
+    required this.itemBuilder,
+    this.empty = 'Sin registros',
+    this.emptyIcon = Icons.inbox_outlined,
+    this.onAdd,
+    this.addLabel = 'Nuevo',
+    this.header,
+    this.filter,
+  });
   @override
-  State<ListPage> createState() => _ListPageState();
+  State<ListPage> createState() => ListPageState();
 }
 
-class _ListPageState extends State<ListPage> {
+class ListPageState extends State<ListPage> {
   final _k = GlobalKey<AsyncListState>();
-  void _reload() => _k.currentState?.reload();
+  void reload() => _k.currentState?.reload();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: AsyncList(key: _k, loader: widget.loader, itemBuilder: widget.itemBuilder, empty: widget.empty),
+      body: AsyncList(
+        key: _k,
+        loader: widget.loader,
+        itemBuilder: widget.itemBuilder,
+        empty: widget.empty,
+        emptyIcon: widget.emptyIcon,
+        header: widget.header,
+        filter: widget.filter,
+      ),
       floatingActionButton: widget.onAdd == null
           ? null
           : FloatingActionButton.extended(
-              onPressed: () => widget.onAdd!(_reload),
+              heroTag: null,
+              onPressed: () => widget.onAdd!(reload),
               icon: const Icon(Icons.add),
               label: Text(widget.addLabel),
             ),
@@ -318,8 +544,21 @@ class _ListPageState extends State<ListPage> {
 
 class RowAction {
   final String label;
+  final IconData? icon;
+  final bool destructive;
   final Future<void> Function(BuildContext ctx, Map<String, dynamic> item, VoidCallback reload) fn;
-  const RowAction(this.label, this.fn);
+  const RowAction(this.label, this.fn, {this.icon, this.destructive = false});
+}
+
+PopupMenuItem<int> _menuItem(int value, String label, {IconData? icon, bool destructive = false}) {
+  final color = destructive ? AgroColors.danger : AgroColors.textDark;
+  return PopupMenuItem(
+    value: value,
+    child: Row(children: [
+      if (icon != null) ...[Icon(icon, size: 20, color: destructive ? AgroColors.danger : AgroColors.primary), const SizedBox(width: 12)],
+      Flexible(child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600))),
+    ]),
+  );
 }
 
 /// CRUD genérico sobre un recurso REST del backend.
@@ -328,6 +567,9 @@ class CrudList extends StatefulWidget {
   final String? listPath;
   final String idKey;
   final String singular;
+
+  /// Género gramatical para los mensajes ("Nuevo lote" / "Nueva cosecha").
+  final bool femenino;
   final Future<List<FieldDef>> Function() fields;
   final String Function(Map<String, dynamic>) title;
   final String Function(Map<String, dynamic>) subtitle;
@@ -338,12 +580,15 @@ class CrudList extends StatefulWidget {
   final String Function(Map<String, dynamic>)? trailingText;
   final Widget? Function(Map<String, dynamic>)? badge;
   final List<RowAction> Function(Map<String, dynamic>)? extra;
+  final void Function(BuildContext, Map<String, dynamic>, VoidCallback reload)? onTap;
+  final String? empty;
   const CrudList({
     super.key,
     required this.path,
     this.listPath,
     required this.idKey,
     required this.singular,
+    this.femenino = false,
     required this.fields,
     required this.title,
     required this.subtitle,
@@ -354,6 +599,8 @@ class CrudList extends StatefulWidget {
     this.trailingText,
     this.badge,
     this.extra,
+    this.onTap,
+    this.empty,
   });
   @override
   State<CrudList> createState() => _CrudListState();
@@ -363,29 +610,41 @@ class _CrudListState extends State<CrudList> {
   final _k = GlobalKey<AsyncListState>();
   void _reload() => _k.currentState?.reload();
 
+  String get _nuevo => widget.femenino ? 'Nueva' : 'Nuevo';
+  String get _este => widget.femenino ? 'esta' : 'este';
+
   Future<void> _create() async {
-    final f = await widget.fields();
-    if (!mounted) return;
-    final data = await showForm(context, 'Nuevo ${widget.singular}', f);
+    final f = await cargar(context, widget.fields);
+    if (f == null || !mounted) return;
+    final data = await showForm(context, '$_nuevo ${widget.singular}', f, edit: false);
     if (data == null || !mounted) return;
-    if (await run(context, () => Api.i.dio.post(widget.path, data: data), ok: 'Creado')) _reload();
+    final ok = await run(context, () => Api.i.dio.post(widget.path, data: data),
+        ok: widget.femenino ? 'Creada' : 'Creado');
+    if (ok) _reload();
   }
 
   Future<void> _edit(Map<String, dynamic> item) async {
-    final f = await widget.fields();
-    if (!mounted) return;
+    final f = await cargar(context, widget.fields);
+    if (f == null || !mounted) return;
     final init = widget.normalize?.call(item) ?? item;
-    final data = await showForm(context, 'Editar ${widget.singular}', f, initial: init);
+    final data = await showForm(context, 'Editar ${widget.singular}', f, initial: init, edit: true);
     if (data == null || !mounted) return;
-    if (await run(context, () => Api.i.dio.put('${widget.path}/${item[widget.idKey]}', data: data), ok: 'Guardado')) {
+    if (await run(context, () => Api.i.dio.put('${widget.path}/${item[widget.idKey]}', data: data), ok: 'Cambios guardados')) {
       _reload();
     }
   }
 
   Future<void> _delete(Map<String, dynamic> item) async {
-    if (!await confirmar(context, '¿Eliminar este ${widget.singular}?')) return;
+    final t = widget.title(item);
+    if (!await confirmar(context, '«$t» se eliminará de forma permanente.',
+        titulo: '¿Eliminar $_este ${widget.singular}?', ok: 'Eliminar', destructivo: true)) {
+      return;
+    }
     if (!mounted) return;
-    if (await run(context, () => Api.i.dio.delete('${widget.path}/${item[widget.idKey]}'), ok: 'Eliminado')) _reload();
+    if (await run(context, () => Api.i.dio.delete('${widget.path}/${item[widget.idKey]}'),
+        ok: widget.femenino ? 'Eliminada' : 'Eliminado')) {
+      _reload();
+    }
   }
 
   @override
@@ -395,42 +654,78 @@ class _CrudListState extends State<CrudList> {
       body: AsyncList(
         key: _k,
         loader: () => Api.i.getList(widget.listPath ?? widget.path),
-        empty: 'Aún no hay registros',
+        empty: widget.empty ?? 'Aún no hay registros',
+        emptyIcon: widget.icon,
         itemBuilder: (c, it, reload) {
           final extras = widget.extra?.call(it) ?? const <RowAction>[];
           final tt = widget.trailingText?.call(it);
           final sub = widget.subtitle(it);
+          final menu = widget.canEdit || extras.isNotEmpty;
           return AgroListCard(
             tint: widget.tint?.call(it),
+            onTap: widget.onTap == null ? null : () => widget.onTap!(c, it, reload),
             leading: AgroIconTile(icon: widget.icon),
-            title: Text(widget.title(it), style: const TextStyle(fontWeight: FontWeight.w800, color: AgroColors.textDark)),
-            subtitle: sub.isEmpty
-                ? null
-                : Text(sub, style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600, height: 1.35)),
+            title: Text(widget.title(it), style: AgroText.title),
+            subtitle: sub.isEmpty ? null : Text(sub, style: AgroText.muted),
             badges: widget.badge?.call(it),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (tt != null)
-                Text(tt, style: const TextStyle(fontWeight: FontWeight.w900, color: AgroColors.primary)),
-              if (widget.canEdit)
-                PopupMenuButton<int>(
-                  onSelected: (v) {
-                    if (v == 0) _edit(it);
-                    if (v == 1) _delete(it);
-                    if (v >= 10) extras[v - 10].fn(c, it, reload);
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 0, child: Text('Editar')),
-                    const PopupMenuItem(value: 1, child: Text('Eliminar')),
-                    for (var i = 0; i < extras.length; i++) PopupMenuItem(value: 10 + i, child: Text(extras[i].label)),
-                  ],
-                ),
-            ]),
+            trailing: tt == null && !menu
+                ? null
+                : Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (tt != null)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 110),
+                        child: Text(tt, textAlign: TextAlign.end, maxLines: 2, overflow: TextOverflow.ellipsis, style: AgroText.amount),
+                      ),
+                    if (menu)
+                      PopupMenuButton<int>(
+                        tooltip: 'Opciones',
+                        onSelected: (v) {
+                          if (v == 0) _edit(it);
+                          if (v == 1) _delete(it);
+                          if (v >= 10) extras[v - 10].fn(c, it, reload);
+                        },
+                        itemBuilder: (_) => [
+                          for (var i = 0; i < extras.length; i++)
+                            _menuItem(10 + i, extras[i].label, icon: extras[i].icon, destructive: extras[i].destructive),
+                          if (widget.canEdit) ...[
+                            _menuItem(0, 'Editar', icon: Icons.edit_outlined),
+                            _menuItem(1, 'Eliminar', icon: Icons.delete_outline, destructive: true),
+                          ],
+                        ],
+                      ),
+                  ]),
           );
         },
       ),
       floatingActionButton: widget.canEdit
-          ? FloatingActionButton.extended(onPressed: _create, icon: const Icon(Icons.add), label: const Text('Nuevo'))
+          ? FloatingActionButton.extended(
+              heroTag: null,
+              onPressed: _create,
+              icon: const Icon(Icons.add),
+              label: Text('$_nuevo ${widget.singular}'),
+            )
           : null,
+    );
+  }
+}
+
+/// Menú "⋮" de una fila con acciones arbitrarias.
+class RowMenu extends StatelessWidget {
+  final List<RowAction> actions;
+  final Map<String, dynamic> item;
+  final VoidCallback reload;
+  const RowMenu({super.key, required this.actions, required this.item, required this.reload});
+
+  @override
+  Widget build(BuildContext context) {
+    if (actions.isEmpty) return const SizedBox.shrink();
+    return PopupMenuButton<int>(
+      tooltip: 'Opciones',
+      onSelected: (v) => actions[v].fn(context, item, reload),
+      itemBuilder: (_) => [
+        for (var i = 0; i < actions.length; i++)
+          _menuItem(i, actions[i].label, icon: actions[i].icon, destructive: actions[i].destructive),
+      ],
     );
   }
 }
@@ -438,29 +733,24 @@ class _CrudListState extends State<CrudList> {
 /// Pestañas superiores (TabBar + TabBarView).
 class TabsPage extends StatelessWidget {
   final Map<String, Widget> tabs;
-  const TabsPage({super.key, required this.tabs});
+  final int initialIndex;
+  const TabsPage({super.key, required this.tabs, this.initialIndex = 0});
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: tabs.length,
+      initialIndex: initialIndex.clamp(0, tabs.length - 1),
       child: Column(children: [
         Container(
           decoration: const BoxDecoration(
             color: AgroColors.surfaceGreen,
-            border: Border(bottom: BorderSide(color: Color(0xFFC2D8C7))),
+            border: Border(bottom: BorderSide(color: AgroColors.tabBorder)),
           ),
           child: Align(
             alignment: Alignment.centerLeft,
             child: TabBar(
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              labelColor: AgroColors.forest,
-              unselectedLabelColor: AgroColors.textMuted,
-              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
-              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              indicatorColor: AgroColors.forest,
-              indicatorWeight: 3,
-              dividerColor: Colors.transparent,
               tabs: [for (final t in tabs.keys) Tab(text: t)],
             ),
           ),
@@ -471,25 +761,50 @@ class TabsPage extends StatelessWidget {
   }
 }
 
-/// Tarjeta clave/valor para mostrar mapas de datos sin conocer su forma exacta.
-class KvCard extends StatelessWidget {
-  final String title;
-  final Map<String, dynamic> data;
-  const KvCard({super.key, required this.title, required this.data});
+/// Fila etiqueta / valor para tarjetas de detalle.
+class InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool strong;
+  const InfoRow(this.label, this.value, {super.key, this.strong = false});
   @override
   Widget build(BuildContext context) {
-    final rows = data.entries.where((e) => e.value is! Map && e.value is! List && e.value != null).toList();
-    return AgroCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AgroColors.textDark)),
-        const SizedBox(height: 10),
-        for (final e in rows)
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(flex: 2, child: Text(label, style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600))),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 3,
+          child: Text(value.isEmpty ? '—' : value,
+              textAlign: TextAlign.end,
+              style: TextStyle(fontWeight: strong ? FontWeight.w800 : FontWeight.w600, color: AgroColors.textDark)),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Chips de filtro horizontales (p. ej. estados de tarea).
+class FilterChips extends StatelessWidget {
+  final List<String> options;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+  final String allLabel;
+  const FilterChips({super.key, required this.options, required this.selected, required this.onSelected, this.allLabel = 'Todas'});
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(label: Text(allLabel), selected: selected == null, onSelected: (_) => onSelected(null)),
+        ),
+        for (final o in options)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              SizedBox(width: 130, child: Text(e.key, style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600))),
-              Expanded(child: Text(s(e.value), style: const TextStyle(fontWeight: FontWeight.w600, color: AgroColors.textDark))),
-            ]),
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(label: Text(o), selected: selected == o, onSelected: (_) => onSelected(selected == o ? null : o)),
           ),
       ]),
     );
