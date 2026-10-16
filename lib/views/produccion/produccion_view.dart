@@ -1,19 +1,8 @@
 import 'package:flutter/material.dart';
-import 'api.dart';
-import 'main.dart';
-import 'ui.dart';
-
-bool get esAdmin => session.rol == 'admin';
-
-Future<List<MapEntry<dynamic, String>>> lotesOpc() async {
-  final ls = await Api.i.getList('/lotes');
-  return [for (final l in ls) MapEntry(l['idlote'], s(l['nombre']).isEmpty ? 'Lote #${l['idlote']}' : s(l['nombre']))];
-}
-
-Future<List<MapEntry<dynamic, String>>> palmasOpc() async {
-  final ps = await Api.i.getList('/palmas');
-  return [for (final p in ps) MapEntry(p['idpalma'], s(p['codigo']).isEmpty ? 'Palma #${p['idpalma']}' : s(p['codigo']))];
-}
+import 'package:agrosmart_proto/providers/session_provider.dart';
+import 'package:agrosmart_proto/providers/app_providers.dart';
+import 'package:agrosmart_proto/ui/design.dart';
+import 'package:agrosmart_proto/ui/widgets.dart';
 
 /// Las relaciones pueden venir como objeto anidado; el formulario necesita el id.
 Map<String, dynamic> aplanarIds(Map<String, dynamic> m, List<String> keys) {
@@ -56,13 +45,10 @@ class ProduccionPage extends StatelessWidget {
         icon: Icons.grass,
         canEdit: esAdmin,
         fields: () async {
-          final lotes = await Api.i.getList('/lotes');
           return [
             const FieldDef('tipo', 'Tipo (maíz, café, palma…)', required: true),
             const FieldDef('nombrelote', 'Nombre / referencia'),
-            FieldDef('idlote', 'Lote', type: FT.select, options: [
-              for (final l in lotes) MapEntry(l['idlote'], s(l['nombre']).isEmpty ? 'Lote #${l['idlote']}' : s(l['nombre'])),
-            ]),
+            FieldDef('idlote', 'Lote', type: FT.select, options: await produccionService.lotesOpc()),
             const FieldDef('fechasiembra', 'Fecha de siembra', type: FT.date),
             const FieldDef('fechacosechaestimada', 'Cosecha estimada', type: FT.date),
           ];
@@ -77,6 +63,7 @@ class ProduccionPage extends StatelessWidget {
           final lote = c['idlote'] is Map ? s((c['idlote'] as Map)['nombre']) : s(c['nombrelote']);
           return 'Lote: ${lote.isEmpty ? '—' : lote}\nSiembra: ${d10(c['fechasiembra'])} · Cosecha est.: ${d10(c['fechacosechaestimada'])}';
         },
+        badge: (c) => CropBadge(s(c['tipo'])),
       ),
       'Cosechas': CrudList(
         path: '/api/v1/cosechas',
@@ -85,11 +72,8 @@ class ProduccionPage extends StatelessWidget {
         icon: Icons.agriculture,
         canEdit: esAdmin,
         fields: () async {
-          final cultivos = await Api.i.getList('/cultivos');
           return [
-            FieldDef('idcultivo', 'Cultivo', type: FT.select, required: true, onlyCreate: true, options: [
-              for (final c in cultivos) MapEntry(c['idcultivo'], s(c['tipo']).isEmpty ? 'Cultivo #${c['idcultivo']}' : s(c['tipo'])),
-            ]),
+            FieldDef('idcultivo', 'Cultivo', type: FT.select, required: true, onlyCreate: true, options: await produccionService.cultivosOpc()),
             const FieldDef('fechacosecha', 'Fecha', type: FT.date, required: true),
             const FieldDef('cantidad', 'Cantidad', type: FT.number, required: true),
             const FieldDef('unidad', 'Unidad (kg, t, bultos…)'),
@@ -113,12 +97,13 @@ class ProduccionPage extends StatelessWidget {
           FieldDef('estadosanitario', 'Estado sanitario', type: FT.select, options: [
             for (final e in ['Sano', 'En observación', 'Enfermo', 'Tratamiento']) MapEntry(e, e),
           ]),
-          FieldDef('idlote', 'Lote', type: FT.select, options: await lotesOpc()),
+          FieldDef('idlote', 'Lote', type: FT.select, options: await produccionService.lotesOpc()),
           const FieldDef('observaciones', 'Observaciones', type: FT.multiline),
         ],
         normalize: (p) => aplanarIds(p, ['idlote']),
         title: (p) => s(p['codigo']).isEmpty ? 'Palma #${p['idpalma']}' : s(p['codigo']),
-        subtitle: (p) => '${s(p['variedad'])} · ${s(p['estadosanitario'])}\nSiembra: ${d10(p['fechasiembra'])}',
+        subtitle: (p) => '${s(p['variedad'])}${s(p['variedad']).isEmpty ? '' : ' · '}Siembra: ${d10(p['fechasiembra'])}',
+        badge: (p) => StatusBadge(s(p['estadosanitario'])),
       ),
       'Prod. palma': CrudList(
         path: '/produccion-palma',
@@ -131,8 +116,8 @@ class ProduccionPage extends StatelessWidget {
           const FieldDef('cantidadracimos', 'Cantidad de racimos', type: FT.number),
           const FieldDef('pesokg', 'Peso (kg)', type: FT.number),
           const FieldDef('calidad', 'Calidad'),
-          FieldDef('idlote', 'Lote', type: FT.select, options: await lotesOpc()),
-          FieldDef('idpalma', 'Palma (opcional)', type: FT.select, options: await palmasOpc()),
+          FieldDef('idlote', 'Lote', type: FT.select, options: await produccionService.lotesOpc()),
+          FieldDef('idpalma', 'Palma (opcional)', type: FT.select, options: await produccionService.palmasOpc()),
           const FieldDef('observaciones', 'Observaciones', type: FT.multiline),
         ],
         normalize: (p) => aplanarIds(p, ['idlote', 'idpalma']),

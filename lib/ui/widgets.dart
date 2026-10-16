@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'api.dart';
+import 'package:agrosmart_proto/services/api_client.dart';
+import 'package:agrosmart_proto/theme.dart';
+import 'design.dart';
 
 // ── Helpers de formato ──────────────────────────────────────────────────────
 String s(dynamic v) => v == null ? '' : v.toString();
+
 double n(dynamic v) => v is num ? v.toDouble() : double.tryParse(s(v)) ?? 0;
+
 String d10(dynamic v) {
   final x = s(v);
   return x.length >= 10 ? x.substring(0, 10) : x;
@@ -204,12 +208,20 @@ class _FormSheetState extends State<_FormSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Form(
           key: _key,
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(widget.title, style: Theme.of(context).textTheme.titleLarge),
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(4)),
+              ),
+            ),
+            Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AgroColors.textDark)),
             const SizedBox(height: 16),
             for (final f in _fields) Padding(padding: const EdgeInsets.only(bottom: 12), child: _field(f)),
             FilledButton(onPressed: _submit, child: Text(widget.okLabel)),
@@ -245,18 +257,7 @@ class AsyncListState extends State<AsyncList> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snap.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.cloud_off, size: 48, color: Colors.grey),
-                const SizedBox(height: 8),
-                Text(Api.errorMsg(snap.error!), textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                FilledButton.tonal(onPressed: reload, child: const Text('Reintentar')),
-              ]),
-            ),
-          );
+          return AgroError(message: Api.errorMsg(snap.error!), onRetry: reload);
         }
         final items = snap.data ?? [];
         return RefreshIndicator(
@@ -266,11 +267,15 @@ class AsyncListState extends State<AsyncList> {
           },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
             children: [
-              if (widget.header != null) widget.header!,
-              if (items.isEmpty) Padding(padding: const EdgeInsets.all(32), child: Center(child: Text(widget.empty))),
-              for (final it in items) widget.itemBuilder(ctx, (it as Map).cast<String, dynamic>(), reload),
+              if (widget.header != null) ...[widget.header!, const SizedBox(height: 12)],
+              if (items.isEmpty) AgroEmpty(message: widget.empty),
+              for (final it in items)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: widget.itemBuilder(ctx, (it as Map).cast<String, dynamic>(), reload),
+                ),
             ],
           ),
         );
@@ -331,6 +336,7 @@ class CrudList extends StatefulWidget {
   final Map<String, dynamic> Function(Map<String, dynamic>)? normalize;
   final Color? Function(Map<String, dynamic>)? tint;
   final String Function(Map<String, dynamic>)? trailingText;
+  final Widget? Function(Map<String, dynamic>)? badge;
   final List<RowAction> Function(Map<String, dynamic>)? extra;
   const CrudList({
     super.key,
@@ -346,6 +352,7 @@ class CrudList extends StatefulWidget {
     this.normalize,
     this.tint,
     this.trailingText,
+    this.badge,
     this.extra,
   });
   @override
@@ -392,30 +399,32 @@ class _CrudListState extends State<CrudList> {
         itemBuilder: (c, it, reload) {
           final extras = widget.extra?.call(it) ?? const <RowAction>[];
           final tt = widget.trailingText?.call(it);
-          return Card(
-            color: widget.tint?.call(it),
-            child: ListTile(
-              leading: CircleAvatar(child: Icon(widget.icon)),
-              title: Text(widget.title(it)),
-              subtitle: Text(widget.subtitle(it)),
-              isThreeLine: widget.subtitle(it).contains('\n'),
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                if (tt != null) Text(tt, style: const TextStyle(fontWeight: FontWeight.bold)),
-                if (widget.canEdit)
-                  PopupMenuButton<int>(
-                    onSelected: (v) {
-                      if (v == 0) _edit(it);
-                      if (v == 1) _delete(it);
-                      if (v >= 10) extras[v - 10].fn(c, it, reload);
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 0, child: Text('Editar')),
-                      const PopupMenuItem(value: 1, child: Text('Eliminar')),
-                      for (var i = 0; i < extras.length; i++) PopupMenuItem(value: 10 + i, child: Text(extras[i].label)),
-                    ],
-                  ),
-              ]),
-            ),
+          final sub = widget.subtitle(it);
+          return AgroListCard(
+            tint: widget.tint?.call(it),
+            leading: AgroIconTile(icon: widget.icon),
+            title: Text(widget.title(it), style: const TextStyle(fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+            subtitle: sub.isEmpty
+                ? null
+                : Text(sub, style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600, height: 1.35)),
+            badges: widget.badge?.call(it),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (tt != null)
+                Text(tt, style: const TextStyle(fontWeight: FontWeight.w900, color: AgroColors.primary)),
+              if (widget.canEdit)
+                PopupMenuButton<int>(
+                  onSelected: (v) {
+                    if (v == 0) _edit(it);
+                    if (v == 1) _delete(it);
+                    if (v >= 10) extras[v - 10].fn(c, it, reload);
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 0, child: Text('Editar')),
+                    const PopupMenuItem(value: 1, child: Text('Eliminar')),
+                    for (var i = 0; i < extras.length; i++) PopupMenuItem(value: 10 + i, child: Text(extras[i].label)),
+                  ],
+                ),
+            ]),
           );
         },
       ),
@@ -435,9 +444,26 @@ class TabsPage extends StatelessWidget {
     return DefaultTabController(
       length: tabs.length,
       child: Column(children: [
-        Material(
-          color: Theme.of(context).colorScheme.surface,
-          child: TabBar(isScrollable: tabs.length > 3, tabs: [for (final t in tabs.keys) Tab(text: t)]),
+        Container(
+          decoration: const BoxDecoration(
+            color: AgroColors.surfaceGreen,
+            border: Border(bottom: BorderSide(color: Color(0xFFC2D8C7))),
+          ),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelColor: AgroColors.forest,
+              unselectedLabelColor: AgroColors.textMuted,
+              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              indicatorColor: AgroColors.forest,
+              indicatorWeight: 3,
+              dividerColor: Colors.transparent,
+              tabs: [for (final t in tabs.keys) Tab(text: t)],
+            ),
+          ),
         ),
         Expanded(child: TabBarView(children: tabs.values.toList())),
       ]),
@@ -453,22 +479,19 @@ class KvCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = data.entries.where((e) => e.value is! Map && e.value is! List && e.value != null).toList();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          for (final e in rows)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                SizedBox(width: 130, child: Text(e.key, style: const TextStyle(color: Colors.grey))),
-                Expanded(child: Text(s(e.value))),
-              ]),
-            ),
-        ]),
-      ),
+    return AgroCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+        const SizedBox(height: 10),
+        for (final e in rows)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(width: 130, child: Text(e.key, style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600))),
+              Expanded(child: Text(s(e.value), style: const TextStyle(fontWeight: FontWeight.w600, color: AgroColors.textDark))),
+            ]),
+          ),
+      ]),
     );
   }
 }

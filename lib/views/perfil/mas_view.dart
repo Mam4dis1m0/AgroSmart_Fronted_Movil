@@ -4,114 +4,79 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'api.dart';
-import 'main.dart';
-import 'operacion.dart';
-import 'produccion.dart';
-import 'ui.dart';
-
-// ── Inicio / Dashboard ──────────────────────────────────────────────────────
-class InicioPage extends StatelessWidget {
-  const InicioPage({super.key});
-
-  Future<Map<String, dynamic>> _load() async {
-    final out = <String, dynamic>{};
-    try {
-      final f = await Api.i.dio.get('/api/v1/fincas/activa');
-      out['finca'] = (f.data as Map).cast<String, dynamic>();
-    } catch (_) {}
-    if (esAdmin) {
-      final rows = await Api.i.getList('/api/v1/fincas/dashboard');
-      for (final r in rows) {
-        if (r['idfinca'] == session.idfinca) out['kpi'] = (r as Map).cast<String, dynamic>();
-      }
-    } else {
-      final t = await Api.i.getList('/api/v1/tareas');
-      final low = await Api.i.getList('/api/v1/insumos/stock-bajo');
-      bool est(dynamic x, String p) => s(x['estado']).toLowerCase().startsWith(p);
-      out['kpi'] = {
-        'tareas_pendientes': t.where((x) => est(x, 'pendiente')).length,
-        'tareas_en_progreso': t.where((x) => est(x, 'en progreso')).length,
-        'tareas_completadas': t.where((x) => est(x, 'completad')).length,
-        'insumos_stock_bajo': low.length,
-      };
-    }
-    return out;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _load(),
-      builder: (c, snap) {
-        if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-        if (snap.hasError) return Center(child: Text(Api.errorMsg(snap.error!)));
-        final d = snap.data!;
-        final f = (d['finca'] as Map?)?.cast<String, dynamic>() ?? {};
-        final k = (d['kpi'] as Map?)?.cast<String, dynamic>() ?? {};
-        Widget kpi(String label, dynamic v, IconData i, Color col) => Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(i, color: col),
-                  const SizedBox(height: 6),
-                  Text(s(v), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-                  Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ]),
-              ),
-            );
-        return ListView(padding: const EdgeInsets.all(16), children: [
-          Text('Hola, ${session.nombre} 👋', style: Theme.of(c).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text('${s(f['nombre'])}${s(f['ubicacion']).isEmpty ? '' : ' · ${s(f['ubicacion'])}'}', style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 1.4,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            children: [
-              kpi('Tareas pendientes', k['tareas_pendientes'] ?? 0, Icons.pending_actions, Colors.blueGrey),
-              kpi('En progreso', k['tareas_en_progreso'] ?? 0, Icons.autorenew, Colors.orange),
-              kpi('Completadas', k['tareas_completadas'] ?? 0, Icons.check_circle, Colors.green),
-              kpi('Insumos con stock bajo', k['insumos_stock_bajo'] ?? 0, Icons.warning_amber, Colors.red),
-              if (k['cultivos'] != null) kpi('Cultivos', k['cultivos'], Icons.grass, Colors.green),
-              if (k['miembros'] != null) kpi('Miembros', k['miembros'], Icons.group, Colors.indigo),
-              if (k['ventas_marketplace'] != null) kpi('Ventas marketplace', money(k['ventas_marketplace']), Icons.storefront, Colors.teal),
-            ],
-          ),
-        ]);
-      },
-    );
-  }
-}
+import 'package:agrosmart_proto/services/api_client.dart';
+import 'package:agrosmart_proto/providers/session_provider.dart';
+import 'package:agrosmart_proto/providers/app_providers.dart';
+import 'package:agrosmart_proto/theme.dart';
+import 'package:agrosmart_proto/ui/design.dart';
+import 'package:agrosmart_proto/ui/widgets.dart';
 
 // ── Más: menú ───────────────────────────────────────────────────────────────
 class MasPage extends StatelessWidget {
   const MasPage({super.key});
+
   @override
   Widget build(BuildContext context) {
-    Widget item(IconData i, String t, Widget page) => ListTile(
-          leading: Icon(i),
-          title: Text(t),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => pushPage(context, t, page),
+    Widget tile({
+      required IconData icon,
+      required String title,
+      String? sub,
+      VoidCallback? onTap,
+      Color? iconColor,
+      Color? iconBg,
+      Color? titleColor,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: AgroListCard(
+          leading: AgroIconTile(icon: icon, color: iconColor, bg: iconBg),
+          title: Text(title, style: TextStyle(fontWeight: FontWeight.w800, color: titleColor ?? AgroColors.textDark)),
+          subtitle: sub == null ? null : Text(sub, style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600)),
+          trailing: onTap == null ? null : const Icon(Icons.chevron_right, color: AgroColors.textMuted),
+          onTap: onTap,
+        ),
+      );
+    }
+
+    Widget entry(IconData icon, String title, String sub, Widget page) =>
+        tile(icon: icon, title: title, sub: sub, onTap: () => pushPage(context, title, page));
+
+    Widget section(String title, List<Widget> children) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(padding: const EdgeInsets.only(top: 6, bottom: 10), child: AgroSectionHeader(title)),
+            ...children,
+          ],
         );
-    return ListView(children: [
-      item(Icons.person, 'Mi perfil', const PerfilPage()),
-      if (esAdmin) item(Icons.group, 'Equipo', const EquipoPage()),
-      if (esAdmin) item(Icons.payments, 'Nómina', const NominaPage()),
-      if (esAdmin) item(Icons.bar_chart, 'Reportes', const ReportesPage()),
-      if (esAdmin) item(Icons.workspace_premium, 'Plan y suscripción', const PlanPage()),
-      item(Icons.smart_toy, 'Asistente IA', const AsistentePage()),
-      item(Icons.notifications, 'Avisos', const NotificacionesList()),
-      if (esAdmin) item(Icons.history, 'Auditoría', const AuditoriaPage()),
-      const Divider(),
-      if (session.fincas.length > 1)
-        ListTile(leading: const Icon(Icons.swap_horiz), title: const Text('Cambiar de finca'), onTap: session.cambiarFinca),
-      ListTile(leading: const Icon(Icons.logout), title: const Text('Cerrar sesión'), onTap: session.logout),
+
+    return ListView(padding: const EdgeInsets.all(14), children: [
+      section('Cuenta', [
+        entry(Icons.person, 'Mi perfil', 'Datos personales y contraseña', const PerfilPage()),
+      ]),
+      if (esAdmin)
+        section('Gestión', [
+          entry(Icons.group, 'Equipo', 'Empleados y accesos', const EquipoPage()),
+          entry(Icons.payments, 'Nómina', 'Pagos y jornales', const NominaPage()),
+          entry(Icons.bar_chart, 'Reportes', 'Costos por cultivo y exportación', const ReportesPage()),
+          entry(Icons.workspace_premium, 'Plan y suscripción', 'Administra tu plan', const PlanPage()),
+        ]),
+      section('Herramientas', [
+        entry(Icons.smart_toy, 'Asistente IA', 'Consultas agrícolas (Premium)', const AsistentePage()),
+        entry(Icons.notifications, 'Avisos', 'Notificaciones', const NotificacionesList()),
+        if (esAdmin) entry(Icons.history, 'Auditoría', 'Registro de actividad', const AuditoriaPage()),
+      ]),
+      section('Sesión', [
+        if (session.fincas.length > 1)
+          tile(icon: Icons.swap_horiz, title: 'Cambiar de finca', sub: 'Selecciona otra finca', onTap: session.cambiarFinca),
+        tile(
+          icon: Icons.logout,
+          title: 'Cerrar sesión',
+          onTap: session.logout,
+          iconColor: const Color(0xFFB91C1C),
+          iconBg: const Color(0xFFFEE2E2),
+          titleColor: const Color(0xFFB91C1C),
+        ),
+      ]),
     ]);
   }
 }
@@ -126,11 +91,7 @@ class PerfilPage extends StatefulWidget {
 class _PerfilPageState extends State<PerfilPage> {
   late Future<Map<String, dynamic>> _f = _load();
 
-  Future<Map<String, dynamic>> _load() async {
-    final r = await Api.i.dio.get('/usuarios/me');
-    final d = (r.data as Map).cast<String, dynamic>();
-    return (d['usuario'] as Map?)?.cast<String, dynamic>() ?? d;
-  }
+  Future<Map<String, dynamic>> _load() => authService.me();
 
   @override
   Widget build(BuildContext context) {
@@ -139,19 +100,61 @@ class _PerfilPageState extends State<PerfilPage> {
       future: _f,
       builder: (c, snap) {
         if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-        if (snap.hasError) return Center(child: Text(Api.errorMsg(snap.error!)));
+        if (snap.hasError) return AgroError(message: Api.errorMsg(snap.error!));
         final u = snap.data!;
-        return ListView(padding: const EdgeInsets.all(16), children: [
-          const Center(child: CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40))),
-          const SizedBox(height: 12),
-          Center(child: Text('${s(u['nombre'])} ${s(u['apellido'])}', style: Theme.of(c).textTheme.titleLarge)),
-          Center(child: Text(s(u['email']), style: const TextStyle(color: Colors.grey))),
-          Center(child: Chip(label: Text(s(u['role'] ?? session.rol)))),
-          const SizedBox(height: 16),
-          FilledButton.tonalIcon(
-            icon: const Icon(Icons.edit),
-            label: const Text('Editar datos'),
-            onPressed: () async {
+        final nombre = '${s(u['nombre'])} ${s(u['apellido'])}'.trim();
+        final initials = nombre.isEmpty
+            ? '?'
+            : nombre.split(RegExp(r'\s+')).take(2).map((w) => w[0].toUpperCase()).join();
+        return ListView(padding: const EdgeInsets.all(14), children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF0A2216), Color(0xFF15432B)],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFF214D36)),
+            ),
+            child: Row(children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: AgroColors.surfaceGreen,
+                child: Text(initials, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AgroColors.forest)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(nombre.isEmpty ? 'Usuario' : nombre,
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 2),
+                  Text(s(u['email']), maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xFFA3E5BC), fontSize: 11, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    child: Text(s(u['role'] ?? session.rol).toUpperCase(),
+                        style: const TextStyle(color: AgroColors.mint, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 18),
+          const AgroSectionHeader('Cuenta'),
+          const SizedBox(height: 10),
+          AgroListCard(
+            leading: const AgroIconTile(icon: Icons.edit),
+            title: const Text('Editar datos', style: TextStyle(fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+            trailing: const Icon(Icons.chevron_right, color: AgroColors.textMuted),
+            onTap: () async {
               final d = await showForm(c, 'Editar datos', const [
                 FieldDef('primernombre', 'Nombre'),
                 FieldDef('primerapellido', 'Apellido'),
@@ -159,23 +162,24 @@ class _PerfilPageState extends State<PerfilPage> {
                 FieldDef('cedula', 'Cédula'),
               ]);
               if (d == null || !c.mounted) return;
-              if (await run(c, () => Api.i.dio.put('/usuarios/$id', data: d), ok: 'Perfil actualizado')) {
+              if (await run(c, () => authService.actualizarUsuario(id as int, d), ok: 'Perfil actualizado')) {
                 session.usuario?['nombre'] = d['primernombre'] ?? session.usuario?['nombre'];
                 setState(() => _f = _load());
               }
             },
           ),
           const SizedBox(height: 8),
-          FilledButton.tonalIcon(
-            icon: const Icon(Icons.lock),
-            label: const Text('Cambiar contraseña'),
-            onPressed: () async {
+          AgroListCard(
+            leading: const AgroIconTile(icon: Icons.lock),
+            title: const Text('Cambiar contraseña', style: TextStyle(fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+            trailing: const Icon(Icons.chevron_right, color: AgroColors.textMuted),
+            onTap: () async {
               final d = await showForm(c, 'Cambiar contraseña', const [
                 FieldDef('contrasenaActual', 'Contraseña actual', type: FT.password, required: true),
                 FieldDef('contrasenaNueva', 'Contraseña nueva (mín. 6)', type: FT.password, required: true),
               ]);
               if (d == null || !c.mounted) return;
-              await run(c, () => Api.i.dio.put('/usuarios/$id/password', data: d), ok: 'Contraseña actualizada');
+              await run(c, () => authService.cambiarContrasena(id as int, d), ok: 'Contraseña actualizada');
             },
           ),
         ]);
@@ -190,7 +194,7 @@ class EquipoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListPage(
-      loader: () => Api.i.getList('/api/v1/fincas/activa/miembros'),
+      loader: () => fincaService.miembros().then((l) => l.map((e) => e.toMap()).toList()),
       addLabel: 'Nuevo empleado',
       onAdd: (reload) async {
         final d = await showForm(context, 'Registrar empleado', const [
@@ -204,26 +208,29 @@ class EquipoPage extends StatelessWidget {
           FieldDef('montoporjornal', 'Pago por jornal', type: FT.number),
         ]);
         if (d == null || !context.mounted) return;
-        if (await run(context, () => Api.i.dio.post('/usuarios/empleados', data: d), ok: 'Empleado registrado')) reload();
+        if (await run(context, () => fincaService.registrarEmpleado(d), ok: 'Empleado registrado')) reload();
       },
       itemBuilder: (c, m, reload) {
         final activo = m['activo'] != false;
         final propio = m['idusuario'] == session.usuario?['id'];
-        return Card(
-          child: ListTile(
-            leading: CircleAvatar(child: Text(s(m['primernombre']).isEmpty ? '?' : s(m['primernombre'])[0].toUpperCase())),
-            title: Text('${s(m['primernombre'])} ${s(m['primerapellido'])}'),
-            subtitle: Text('${s(m['email'])}\n${s(m['rol'])}${s(m['telefono']).isEmpty ? '' : ' · ${s(m['telefono'])}'}'),
-            isThreeLine: true,
-            trailing: propio
-                ? null
-                : Switch(
-                    value: activo,
-                    onChanged: (v) async {
-                      if (await run(c, () => Api.i.dio.patch('/api/v1/fincas/activa/miembros/${m['idusuario']}', data: {'activo': v}))) reload();
-                    },
-                  ),
+        return AgroListCard(
+          leading: CircleAvatar(
+            backgroundColor: AgroColors.surfaceGreen,
+            child: Text(s(m['primernombre']).isEmpty ? '?' : s(m['primernombre'])[0].toUpperCase(),
+                style: const TextStyle(fontWeight: FontWeight.w900, color: AgroColors.forest)),
           ),
+          title: Text('${s(m['primernombre'])} ${s(m['primerapellido'])}',
+              style: const TextStyle(fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+          subtitle: Text('${s(m['email'])}\n${s(m['rol'])}${s(m['telefono']).isEmpty ? '' : ' · ${s(m['telefono'])}'}',
+              style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600, height: 1.35)),
+          trailing: propio
+              ? null
+              : Switch(
+                  value: activo,
+                  onChanged: (v) async {
+                    if (await run(c, () => fincaService.setMiembroActivo(m['idusuario'] as int, v))) reload();
+                  },
+                ),
         );
       },
     );
@@ -236,7 +243,7 @@ class NominaPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListPage(
-      loader: () => Api.i.getList('/api/v1/nomina'),
+      loader: () => nominaService.nominas(),
       empty: 'Aún no hay nóminas',
       addLabel: 'Nueva nómina',
       onAdd: (reload) async {
@@ -245,33 +252,36 @@ class NominaPage extends StatelessWidget {
           FieldDef('fechafin', 'Hasta', type: FT.date, required: true),
         ], okLabel: 'Calcular');
         if (d == null || !context.mounted) return;
-        if (await run(context, () => Api.i.dio.post('/api/v1/nomina', data: d), ok: 'Nómina creada')) reload();
+        if (await run(context, () => nominaService.crear(d), ok: 'Nómina creada')) reload();
       },
-      itemBuilder: (c, nm, reload) => Card(
-        child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.payments)),
-          title: Text('${d10(nm['fechainicio'])} → ${d10(nm['fechafin'])}'),
-          subtitle: Text('${s(nm['estado'])} · ${s(nm['empleados'])} empleados'),
-          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(money(nm['total']), style: const TextStyle(fontWeight: FontWeight.bold)),
-            PopupMenuButton<String>(
-              onSelected: (v) async {
-                final id = nm['idnomina'];
-                if (v == 'eliminar') {
-                  if (!await confirmar(c, '¿Eliminar esta nómina?') || !c.mounted) return;
-                  if (await run(c, () => Api.i.dio.delete('/api/v1/nomina/$id'), ok: 'Eliminada')) reload();
-                } else {
-                  if (await run(c, () => Api.i.dio.patch('/api/v1/nomina/$id/$v'), ok: v == 'pagar' ? 'Nómina pagada' : 'Nómina confirmada')) reload();
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'confirmar', child: Text('Confirmar')),
-                PopupMenuItem(value: 'pagar', child: Text('Marcar como pagada')),
-                PopupMenuItem(value: 'eliminar', child: Text('Eliminar')),
-              ],
-            ),
-          ]),
-        ),
+      itemBuilder: (c, nm, reload) => AgroListCard(
+        leading: const AgroIconTile(icon: Icons.payments),
+        title: Text('${d10(nm['fechainicio'])} → ${d10(nm['fechafin'])}',
+            style: const TextStyle(fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+        subtitle: Text('${s(nm['estado'])} · ${s(nm['empleados'])} empleados',
+            style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600)),
+        badges: StatusBadge(s(nm['estado'])),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(money(nm['total']), style: const TextStyle(fontWeight: FontWeight.w900, color: AgroColors.primary)),
+          PopupMenuButton<String>(
+            onSelected: (v) async {
+              final id = nm['idnomina'];
+              if (v == 'eliminar') {
+                if (!await confirmar(c, '¿Eliminar esta nómina?') || !c.mounted) return;
+                if (await run(c, () => nominaService.eliminar(id), ok: 'Eliminada')) reload();
+              } else {
+                final ok = await run(c, () => v == 'pagar' ? nominaService.pagar(id) : nominaService.confirmar(id),
+                    ok: v == 'pagar' ? 'Nómina pagada' : 'Nómina confirmada');
+                if (ok) reload();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'confirmar', child: Text('Confirmar')),
+              PopupMenuItem(value: 'pagar', child: Text('Marcar como pagada')),
+              PopupMenuItem(value: 'eliminar', child: Text('Eliminar')),
+            ],
+          ),
+        ]),
       ),
     );
   }
@@ -288,12 +298,8 @@ class _PlanPageState extends State<PlanPage> {
   late Future<List<dynamic>> _f = _load();
 
   Future<List<dynamic>> _load() async {
-    final planes = await Api.i.getList('/api/v1/planes');
-    Map<String, dynamic>? sus;
-    try {
-      final r = await Api.i.dio.get('/api/v1/suscripcion');
-      if (r.data is Map) sus = (r.data as Map).cast<String, dynamic>();
-    } catch (_) {}
+    final planes = await planService.planes();
+    final sus = await planService.suscripcion();
     return [sus, planes];
   }
 
@@ -327,14 +333,14 @@ class _PlanPageState extends State<PlanPage> {
             label: const Text('Contratar Premium'),
             onPressed: () async {
               if (!await confirmar(c, '¿Contratar el plan Premium para esta finca?') || !c.mounted) return;
-              if (await run(c, () => Api.i.dio.post('/api/v1/suscripcion/contratar'), ok: 'Suscripción activada')) setState(() => _f = _load());
+              if (await run(c, () => planService.contratar(), ok: 'Suscripción activada')) setState(() => _f = _load());
             },
           ),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: () async {
               if (!await confirmar(c, '¿Cancelar la suscripción?') || !c.mounted) return;
-              if (await run(c, () => Api.i.dio.post('/api/v1/suscripcion/cancelar'), ok: 'Suscripción cancelada')) setState(() => _f = _load());
+              if (await run(c, () => planService.cancelar(), ok: 'Suscripción cancelada')) setState(() => _f = _load());
             },
             child: const Text('Cancelar suscripción'),
           ),
@@ -365,12 +371,8 @@ class _AsistentePageState extends State<AsistentePage> {
       _busy = true;
     });
     try {
-      final r = await Api.i.dio.post('/api/v1/chat', data: {
-        'system': 'Eres el asistente de AgroSmart, experto en agronomía y gestión de fincas en Colombia. Responde en español, claro y breve.',
-        'messages': _msgs,
-      });
-      final txt = (r.data['content'] as List).first['text'];
-      setState(() => _msgs.add({'role': 'assistant', 'content': s(txt)}));
+      final txt = await chatService.enviar(_msgs);
+      setState(() => _msgs.add({'role': 'assistant', 'content': txt}));
     } catch (e) {
       setState(() => _msgs.add({'role': 'assistant', 'content': '⚠️ ${Api.errorMsg(e)}'}));
     } finally {
@@ -423,16 +425,21 @@ class AuditoriaPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AsyncList(
-      loader: () => Api.i.getList('/auditoria'),
+      loader: () => avisoService.auditoria().then((l) => l.map((e) => e.toMap()).toList()),
       empty: 'Sin eventos',
-      itemBuilder: (c, a, _) => Card(
-        child: ListTile(
-          leading: Icon(s(a['operacion']) == 'DENEGADO' ? Icons.block : Icons.edit_note,
-              color: s(a['operacion']) == 'DENEGADO' ? Colors.red : null),
-          title: Text('${s(a['operacion'])} · ${s(a['tablaNombre'] ?? a['tabla_nombre'])}'),
-          subtitle: Text(s(a['descripcion'])),
-        ),
-      ),
+      itemBuilder: (c, a, _) {
+        final denegado = s(a['operacion']) == 'DENEGADO';
+        return AgroListCard(
+          leading: AgroIconTile(
+            icon: denegado ? Icons.block : Icons.edit_note,
+            color: denegado ? const Color(0xFFB91C1C) : AgroColors.primary,
+            bg: denegado ? const Color(0xFFFEE2E2) : AgroColors.surfaceGreen,
+          ),
+          title: Text('${s(a['operacion'])} · ${s(a['tablaNombre'] ?? a['tabla_nombre'])}',
+              style: const TextStyle(fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+          subtitle: Text(s(a['descripcion']), style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600)),
+        );
+      },
     );
   }
 }
@@ -443,21 +450,24 @@ class NotificacionesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListPage(
-      loader: () => Api.i.getList('/notificaciones'),
+      loader: () => avisoService.notificaciones().then((l) => l.map((e) => e.toMap()).toList()),
       empty: 'No tienes avisos',
       itemBuilder: (c, nt, reload) {
         final leida = nt['leida'] == true;
-        return Card(
-          child: ListTile(
-            leading: Icon(leida ? Icons.notifications_none : Icons.notifications_active, color: leida ? Colors.grey : Colors.orange),
-            title: Text(s(nt['titulo']), style: TextStyle(fontWeight: leida ? FontWeight.normal : FontWeight.bold)),
-            subtitle: Text(s(nt['mensaje'])),
-            onTap: leida
-                ? null
-                : () async {
-                    if (await run(c, () => Api.i.dio.put('/notificaciones/${nt['idnotificacion']}/leer'))) reload();
-                  },
+        return AgroListCard(
+          tint: leida ? null : const Color(0xFFFFFBEB),
+          leading: AgroIconTile(
+            icon: leida ? Icons.notifications_none : Icons.notifications_active,
+            color: leida ? AgroColors.textMuted : const Color(0xFFB45309),
+            bg: leida ? const Color(0xFFF1F5F9) : const Color(0xFFFEF3C7),
           ),
+          title: Text(s(nt['titulo']), style: TextStyle(fontWeight: leida ? FontWeight.w700 : FontWeight.w900, color: AgroColors.textDark)),
+          subtitle: Text(s(nt['mensaje']), style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600)),
+          onTap: leida
+              ? null
+              : () async {
+                  if (await run(c, () => avisoService.marcarLeida(nt['idnotificacion']))) reload();
+                },
         );
       },
     );
@@ -475,12 +485,7 @@ class _ReportesPageState extends State<ReportesPage> {
   String? _desde, _hasta;
   late Future<List<dynamic>> _f = _cargar();
 
-  Map<String, dynamic> get _q => {if (_desde != null) 'desde': _desde, if (_hasta != null) 'hasta': _hasta};
-
-  Future<List<dynamic>> _cargar() async {
-    final r = await Api.i.dio.get('/api/v1/reportes/costos', queryParameters: _q);
-    return r.data is List ? r.data as List : [];
-  }
+  Future<List<dynamic>> _cargar() => reporteService.costos(desde: _desde, hasta: _hasta);
 
   String _fmt(DateTime p) => '${p.year}-${p.month.toString().padLeft(2, '0')}-${p.day.toString().padLeft(2, '0')}';
 
@@ -505,16 +510,10 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Future<void> _exportar(String tipo) async {
     try {
-      final r = await Api.i.dio.get<List<int>>(
-        '/api/v1/reportes/exportar',
-        queryParameters: {'tipo': tipo, ..._q},
-        options: Options(responseType: ResponseType.bytes),
-      );
-      final cd = r.headers.value('content-disposition') ?? '';
-      final name = RegExp(r'filename="([^"]+)"').firstMatch(cd)?.group(1) ?? 'reporte_$tipo.csv';
+      final arch = await reporteService.exportar(tipo, desde: _desde, hasta: _hasta);
       final dir = await getTemporaryDirectory();
-      final f = File('${dir.path}/$name');
-      await f.writeAsBytes(r.data!);
+      final f = File('${dir.path}/${arch.nombre}');
+      await f.writeAsBytes(arch.bytes);
       await Share.shareXFiles([XFile(f.path)], text: 'Reporte AgroSmart ($tipo)');
     } catch (e) {
       if (mounted) snack(context, _errBytes(e));

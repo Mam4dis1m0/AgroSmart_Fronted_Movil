@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'api.dart';
-import 'main.dart';
-import 'ui.dart';
+import 'package:agrosmart_proto/services/api_client.dart';
+import 'package:agrosmart_proto/providers/session_provider.dart';
+import 'package:agrosmart_proto/providers/app_providers.dart';
+import 'package:agrosmart_proto/theme.dart';
+import 'package:agrosmart_proto/ui/widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -62,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ]),
     ], okLabel: 'Registrarme');
     if (d == null || !mounted) return;
-    final ok = await run(context, () => Api.i.dio.post('/usuarios/register', data: d), ok: 'Cuenta creada. Ya puedes iniciar sesión.');
+    final ok = await run(context, () => authService.registrar(d), ok: 'Cuenta creada. Ya puedes iniciar sesión.');
     if (ok) _email.text = s(d['email']);
   }
 
@@ -71,14 +73,14 @@ class _LoginScreenState extends State<LoginScreen> {
       FieldDef('email', 'Correo de tu cuenta', type: FT.email, required: true),
     ], okLabel: 'Enviar enlace');
     if (d == null || !mounted) return;
-    if (!await run(context, () => Api.i.dio.post('/usuarios/forgot-password', data: d), ok: 'Si el correo existe, recibirás un token.')) return;
+    if (!await run(context, () => authService.olvideContrasena(s(d['email'])), ok: 'Si el correo existe, recibirás un token.')) return;
     if (!mounted) return;
     final r = await showForm(context, 'Nueva contraseña', const [
       FieldDef('token', 'Token recibido por correo', required: true),
       FieldDef('nuevaContrasena', 'Nueva contraseña (mín. 6)', type: FT.password, required: true),
     ], okLabel: 'Cambiar');
     if (r == null || !mounted) return;
-    await run(context, () => Api.i.dio.post('/usuarios/reset-password', data: r), ok: 'Contraseña actualizada');
+    await run(context, () => authService.resetContrasena(r), ok: 'Contraseña actualizada');
   }
 
   Future<void> _servidor() async {
@@ -132,37 +134,52 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        actions: [
-          TextButton.icon(
-            onPressed: _servidor,
-            icon: const Icon(Icons.dns_outlined, size: 18),
-            label: const Text('Servidor'),
-          ),
-        ],
-      ),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
+              constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.eco, size: 72, color: cs.primary),
-                  const SizedBox(height: 8),
-                  Text('AgroSmart', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(children: [
+                        Icon(Icons.eco, size: 28, color: AgroColors.primary),
+                        SizedBox(width: 8),
+                        Text('AgroSmart',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AgroColors.primary,
+                                letterSpacing: -0.3)),
+                      ]),
+                      TextButton.icon(
+                        onPressed: _servidor,
+                        icon: const Icon(Icons.dns_outlined, size: 16),
+                        label: const Text('Servidor', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  const Text('¡Bienvenido de nuevo!',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AgroColors.textDark)),
                   const SizedBox(height: 4),
-                  const Text('Gestión agrícola en tu bolsillo'),
-                  const SizedBox(height: 32),
+                  const Text('Ingresa tus credenciales para acceder a la app.',
+                      style: TextStyle(fontSize: 13, color: AgroColors.textMuted)),
+                  const SizedBox(height: 24),
                   TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Correo', border: OutlineInputBorder(), prefixIcon: Icon(Icons.mail_outline)),
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Correo electrónico',
+                      prefixIcon: Icon(Icons.mail_outline),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -171,7 +188,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     onSubmitted: (_) => _go(),
                     decoration: InputDecoration(
                       labelText: 'Contraseña',
-                      border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(_hide ? Icons.visibility : Icons.visibility_off),
@@ -179,38 +195,64 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _olvide,
+                      child: const Text('¿Olvidaste tu contraseña?', style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
                   if (_error != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFDECEA),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(_error!,
+                          style: const TextStyle(color: Color(0xFFB3261E), fontSize: 12),
+                          textAlign: TextAlign.center),
+                    ),
                     const SizedBox(height: 12),
-                    Text(_error!, style: TextStyle(color: cs.error), textAlign: TextAlign.center),
                   ],
-                  const SizedBox(height: 20),
                   SizedBox(
-                    width: double.infinity,
-                    height: 48,
+                    height: 50,
                     child: FilledButton(
                       onPressed: _loading ? null : _go,
                       child: _loading
-                          ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Text('Iniciar sesión'),
+                          ? const SizedBox(
+                              width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Ingresar a AgroSmart'),
                     ),
                   ),
-                  const SizedBox(height: 8),
                   if (_googleId.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     SizedBox(
-                      width: double.infinity,
-                      height: 48,
+                      height: 50,
                       child: OutlinedButton.icon(
                         onPressed: _loading ? null : _google,
-                        icon: const Icon(Icons.g_mobiledata, size: 28),
+                        icon: const Icon(Icons.g_mobiledata, size: 26),
                         label: const Text('Continuar con Google'),
                       ),
                     ),
                   ],
-                  TextButton(onPressed: _olvide, child: const Text('¿Olvidaste tu contraseña?')),
-                  TextButton(onPressed: _registro, child: const Text('Crear cuenta')),
+                  const SizedBox(height: 16),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Text('¿Sin cuenta? ', style: TextStyle(fontSize: 13, color: AgroColors.textMuted)),
+                    GestureDetector(
+                      onTap: _registro,
+                      child: const Text('Regístrate',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AgroColors.primary,
+                              decoration: TextDecoration.underline)),
+                    ),
+                  ]),
+                  const SizedBox(height: 20),
                   Text('Conectando a: ${Api.i.baseUrl}',
-                      textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 11, color: AgroColors.textMuted)),
                 ],
               ),
             ),
