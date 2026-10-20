@@ -11,10 +11,18 @@ al depurar por USB). Para configurar otro servidor, usa `--dart-define=API_URL=.
 3. Android: en `android/app/src/main/AndroidManifest.xml` agrega
    `<uses-permission android:name="android.permission.INTERNET"/>` y, para http local,
    `android:usesCleartextTraffic="true"` dentro de `<application ...>`.
-4. Backend: `npm run start:dev` (con su `.env`). Para depurar un celular físico por USB:
-   ejecuta `adb reverse tcp:3000 tcp:3000` una vez tras conectar el teléfono y luego
-   `flutter run -d ID_DEL_DISPOSITIVO`. La app apunta automáticamente a
-   `http://127.0.0.1:3000`. En el emulador Android, usa
+4. Backend: `npm run start:dev` (con su `.env`). Para depurar un celular físico por USB,
+   conecta y autoriza el teléfono. En PowerShell, ejecuta `adb reverse tcp:3000 tcp:3000`
+   si `adb` está en el PATH. Si PowerShell no reconoce `adb` y el SDK está en la ubicación
+   habitual de Windows, usa:
+
+   ```powershell
+   & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" reverse tcp:3000 tcp:3000
+   ```
+
+   Si instalaste el SDK en otra carpeta, cambia la ruta por la ubicación de
+   `platform-tools\adb.exe`. Luego ejecuta `flutter run -d ID_DEL_DISPOSITIVO`.
+   La app apunta automáticamente a `http://127.0.0.1:3000`. En el emulador Android, usa
    `--dart-define=API_URL=http://10.0.2.2:3000`.
 
 ## Qué incluye
