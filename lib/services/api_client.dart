@@ -10,8 +10,8 @@ const _envUrl = String.fromEnvironment('API_URL');
 String defaultBaseUrl() {
   if (_envUrl.isNotEmpty) return _envUrl;
   if (kIsWeb) return 'http://localhost:3000';
-  // En el emulador Android, "localhost" es el propio emulador; 10.0.2.2 es tu PC.
-  if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:3000';
+  // Con adb reverse, el celular físico llega al backend de la PC por loopback.
+  if (defaultTargetPlatform == TargetPlatform.android) return 'http://127.0.0.1:3000';
   return 'http://localhost:3000';
 }
 
@@ -53,6 +53,12 @@ class Api {
   Future<void> loadBaseUrl() async {
     if (_envUrl.isNotEmpty) return; // --dart-define manda
     final p = await SharedPreferences.getInstance();
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      // Android local usa adb reverse; no reutilizar una IP antigua guardada.
+      await p.remove('api_url');
+      dio.options.baseUrl = defaultBaseUrl();
+      return;
+    }
     final u = p.getString('api_url');
     if (u != null && u.isNotEmpty) dio.options.baseUrl = u;
   }
@@ -64,7 +70,9 @@ class Api {
     }
     dio.options.baseUrl = u;
     final p = await SharedPreferences.getInstance();
-    await p.setString('api_url', u);
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      await p.setString('api_url', u);
+    }
   }
 
   /// true si el servidor responde algo (aunque sea 404): hay conexión.
