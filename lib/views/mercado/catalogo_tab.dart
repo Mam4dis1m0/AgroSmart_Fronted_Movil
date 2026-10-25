@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
 import 'package:agrosmart_proto/providers/session_provider.dart';
@@ -225,8 +226,8 @@ class ListadoCard extends StatelessWidget {
           width: 104,
           height: 116,
           child: fotos.isNotEmpty
-              ? Image.network(
-                  s(fotos.first is Map ? (fotos.first as Map)['url'] : fotos.first),
+              ? Image(
+                  image: CachedNetworkImageProvider(s(fotos.first is Map ? (fotos.first as Map)['url'] : fotos.first)),
                   fit: BoxFit.cover,
                   loadingBuilder: (_, child, p) => p == null ? child : const ColoredBox(color: AgroColors.surfaceGreen),
                   errorBuilder: (_, __, ___) => const ColoredBox(

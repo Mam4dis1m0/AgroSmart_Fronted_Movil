@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/theme.dart';
 
@@ -555,7 +556,7 @@ class AgroAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: bg,
-      foregroundImage: hasFoto ? NetworkImage(url!) : null,
+      foregroundImage: hasFoto ? CachedNetworkImageProvider(url!) : null,
       onForegroundImageError: hasFoto ? (_, __) {} : null,
       child: Text(_iniciales, style: TextStyle(fontSize: radius * 0.7, fontWeight: FontWeight.w800, color: fg)),
     );

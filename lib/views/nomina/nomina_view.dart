@@ -193,7 +193,7 @@ class _NominaDetallePageState extends State<NominaDetallePage> {
                       padding: const EdgeInsets.all(14),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Row(children: [
-                          AgroAvatar(nombre: '${s(d['primernombre'])} ${s(d['primerapellido'])}', radius: 18),
+                          AgroAvatar(url: s(d['fotoperfil']), nombre: '${s(d['primernombre'])} ${s(d['primerapellido'])}', radius: 18),
                           const SizedBox(width: 10),
                           Expanded(child: Text('${s(d['primernombre'])} ${s(d['primerapellido'])}', style: AgroText.title)),
                           Text(money(d['neto']), style: AgroText.amount),

@@ -130,7 +130,7 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                         ])
                       : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Row(children: [
-                            AgroAvatar(nombre: t.empleadoNombre, radius: 18),
+                            AgroAvatar(url: t.empleadoFoto, nombre: t.empleadoNombre, radius: 18),
                             const SizedBox(width: 10),
                             Expanded(child: Text(t.empleadoNombre.isEmpty ? (esAdmin ? 'Empleado' : 'Tú') : t.empleadoNombre, style: AgroText.title)),
                             if (s(asig['estado']).isNotEmpty) StatusBadge(s(asig['estado'])),

@@ -46,6 +46,13 @@ class Tarea extends AgroModel {
     return '${u['primernombre'] ?? ''} ${u['primerapellido'] ?? ''}'.trim();
   }
 
+  /// Foto de perfil del empleado asignado ('' si no tiene).
+  String get empleadoFoto {
+    final e = asignacion?['idempleado'];
+    final u = e is Map ? e['idusuario2'] : null;
+    return u is Map ? (u['fotoperfil']?.toString() ?? '') : '';
+  }
+
   bool get completada => estado.toLowerCase().startsWith('completad');
   bool get pendiente => estado.toLowerCase().startsWith('pendiente');
 

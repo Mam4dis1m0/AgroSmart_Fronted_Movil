@@ -19,6 +19,11 @@ dependencies:
   path_provider: ^2.1.4
   share_plus: ^10.1.4
   google_sign_in: ^6.2.2
+  google_fonts: ^6.2.1
+  connectivity_plus: ^6.0.5
+  another_telephony: ^0.4.1
+  cached_network_image: ^3.4.1
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

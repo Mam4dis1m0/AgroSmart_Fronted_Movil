@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
 import 'package:agrosmart_proto/providers/session_provider.dart';
@@ -141,8 +142,8 @@ class _DetalleListadoPageState extends State<DetalleListadoPage> {
                     onPageChanged: (i) => setState(() => _foto = i),
                     children: [
                       for (final f in fotos)
-                        Image.network(
-                          f,
+                        Image(
+                          image: CachedNetworkImageProvider(f),
                           fit: BoxFit.cover,
                           loadingBuilder: (_, child, p) => p == null ? child : const ColoredBox(color: AgroColors.surfaceGreen, child: Center(child: CircularProgressIndicator())),
                           errorBuilder: (_, __, ___) => const ColoredBox(

@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/providers/session_provider.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
@@ -22,16 +25,33 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _hide = true;
   String? _error;
   String? _info;
+  bool _sinRed = false;
+  StreamSubscription<List<ConnectivityResult>>? _netSub;
 
   @override
   void initState() {
     super.initState();
     _info = session.aviso;
     session.aviso = null;
+    _recordarCorreo();
+    Api.i.sinRed().then((v) {
+      if (mounted) setState(() => _sinRed = v);
+    });
+    _netSub = Connectivity().onConnectivityChanged.listen((r) {
+      if (mounted) setState(() => _sinRed = r.every((x) => x == ConnectivityResult.none));
+    });
+  }
+
+  /// Rellena el último correo con el que se ingresó.
+  Future<void> _recordarCorreo() async {
+    final p = await SharedPreferences.getInstance();
+    final e = p.getString('ultimo_email');
+    if (e != null && e.isNotEmpty && _email.text.isEmpty && mounted) _email.text = e;
   }
 
   @override
   void dispose() {
+    _netSub?.cancel();
     _email.dispose();
     _pass.dispose();
     super.dispose();
@@ -46,6 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       await session.login(_email.text.trim(), _pass.text);
+      SharedPreferences.getInstance().then((p) => p.setString('ultimo_email', _email.text.trim()));
       TextInput.finishAutofillContext();
     } catch (e) {
       if (mounted) setState(() => _error = Api.errorMsg(e));
@@ -225,13 +246,34 @@ class _LoginScreenState extends State<LoginScreen> {
                         const Text('Ingresa para gestionar tu finca o comprar en el Marketplace.',
                             style: TextStyle(fontSize: 14, color: AgroColors.textMuted)),
                         const SizedBox(height: 24),
+                        if (_sinRed)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: AgroColors.warningBg, borderRadius: BorderRadius.circular(12)),
+                            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Icon(Icons.wifi_off, size: 18, color: AgroColors.warningText),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Sin internet. Pueden entrar hasta 2 cuentas que ya hayan iniciado sesión en este celular. Una cuenta nueva necesita conexión.',
+                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AgroColors.warningText),
+                                ),
+                              ),
+                            ]),
+                          ),
                         if (_info != null) _mensaje(_info!, error: false),
                         TextFormField(
                           controller: _email,
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           autofillHints: const [AutofillHints.email, AutofillHints.username],
-                          validator: (v) => (v ?? '').trim().isEmpty ? 'Ingresa tu correo' : null,
+                          validator: (v) {
+                            final t = (v ?? '').trim();
+                            if (t.isEmpty) return 'Ingresa tu correo';
+                            if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t)) return 'Correo no válido';
+                            return null;
+                          },
                           decoration: const InputDecoration(labelText: 'Correo electrónico', prefixIcon: Icon(Icons.mail_outline)),
                         ),
                         const SizedBox(height: 12),

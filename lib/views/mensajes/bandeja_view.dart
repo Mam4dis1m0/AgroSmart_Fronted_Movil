@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
 import 'package:agrosmart_proto/services/contadores.dart';
@@ -52,20 +53,10 @@ class _BandejaPageState extends State<BandejaPage> {
         emptyIcon: Icons.chat_bubble_outline,
         itemBuilder: (c, h, reload) {
           final noLeidos = n(h['noLeidos']).round();
-          final foto = s(h['foto']);
           final yoEscribi = h['ultimoRemitente'] != null && h['ultimoRemitente'] != h['otroId'];
           return AgroListCard(
             tint: noLeidos > 0 ? AgroColors.warningSoft : null,
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(
-                width: 48,
-                height: 48,
-                child: foto.isEmpty
-                    ? const AgroIconTile(icon: Icons.storefront)
-                    : Image.network(foto, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const AgroIconTile(icon: Icons.storefront)),
-              ),
-            ),
+            leading: AgroAvatar(url: s(h['otroFoto']), nombre: s(h['otroNombre']), radius: 24),
             title: Text(s(h['otroNombre']).isEmpty ? 'Usuario' : s(h['otroNombre']),
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: AgroText.title),
             subtitle: Text(

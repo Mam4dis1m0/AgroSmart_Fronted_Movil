@@ -92,7 +92,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) contadores.refrescar();
+    if (state == AppLifecycleState.resumed) {
+      contadores.refrescar();
+      Api.i.sincronizar(); // envía los cambios hechos sin internet
+    }
   }
 
   void _irA(ShellTab tab, int sub) {
@@ -160,6 +163,33 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 ],
               ),
               OfflineBanner(offline: off, onRetry: _probarConexion),
+              ValueListenableBuilder<int>(
+                valueListenable: Api.i.cola.pendientes,
+                builder: (_, n, __) => n == 0
+                    ? const SizedBox.shrink()
+                    : Container(
+                        width: double.infinity,
+                        color: AgroColors.warningBg,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        child: Text('$n cambio${n == 1 ? '' : 's'} pendiente${n == 1 ? '' : 's'} de enviar. Se enviará${n == 1 ? '' : 'n'} al volver el internet.',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AgroColors.warningText)),
+                      ),
+              ),
+              ValueListenableBuilder<int>(
+                valueListenable: Api.i.cola.rechazadas,
+                builder: (_, n, __) => n == 0
+                    ? const SizedBox.shrink()
+                    : InkWell(
+                        onTap: () => Api.i.cola.rechazadas.value = 0,
+                        child: Container(
+                          width: double.infinity,
+                          color: AgroColors.warningBg,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          child: Text('$n cambio${n == 1 ? '' : 's'} hecho${n == 1 ? '' : 's'} sin internet no se pudo guardar. Toca para cerrar.',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AgroColors.warningText)),
+                        ),
+                      ),
+              ),
             ]),
           ),
           Expanded(

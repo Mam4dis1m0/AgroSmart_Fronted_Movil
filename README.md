@@ -45,3 +45,22 @@ login con Google (`--dart-define=GOOGLE_CLIENT_ID=...`, client ID *web*) ·
 modo sin conexión de solo lectura (caché de las últimas listas) con aviso en pantalla.
 
 iOS: agrega `NSPhotoLibraryUsageDescription` en Info.plist para elegir fotos.
+
+## 4.ª versión: diseño Figma + Market + AgroChat
+- Tema y tipografías del diseño (Fraunces + Outfit vía `google_fonts`, necesita internet la primera vez).
+- Login rediseñado. «Recordar mis datos» guarda solo el correo, nunca la contraseña.
+- Comprador: Inicio (market), Explorar, Pedidos, Chats (con insignia de no leídos) y Perfil.
+- AgroChat sobre `/api/v1/mensajeria` + Socket.IO `/mercado` (`socket_io_client`). Solo comprador y admin.
+- Publicar producto con **cámara** (o galería), hasta 6 fotos; se suben por `POST /api/v1/marketplace/fotos`.
+
+### Permisos de cámara
+- iOS (`ios/Runner/Info.plist`): `NSCameraUsageDescription` y `NSPhotoLibraryUsageDescription`.
+- Android: `image_picker` abre la cámara del sistema; no requiere configuración extra.
+
+### Requisito del backend para las fotos
+`main.ts` debe subir el límite de JSON (por defecto 100 KB y una foto en base64 pesa más):
+```ts
+const app = await NestFactory.create<NestExpressApplication>(AppModule, { abortOnError: false });
+app.useBodyParser('json', { limit: '10mb' });
+```
+(`import { NestExpressApplication } from '@nestjs/platform-express';`)
