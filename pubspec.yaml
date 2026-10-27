@@ -34,6 +34,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/agrosmart_logo.png
+    - assets/images/login_botanical_background.png
   fonts:
     - family: PlusJakartaSans
       fonts:
