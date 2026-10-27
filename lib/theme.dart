@@ -73,9 +73,12 @@ class AgroColors {
 /// Estilos de texto reutilizables (la fuente incluida llega hasta peso 800).
 class AgroText {
   AgroText._();
-  static const title = TextStyle(fontWeight: FontWeight.w800, color: AgroColors.textDark);
-  static const muted = TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600, height: 1.35);
-  static const amount = TextStyle(fontWeight: FontWeight.w800, color: AgroColors.primary);
+  static const title =
+      TextStyle(fontWeight: FontWeight.w800, color: AgroColors.textDark);
+  static const muted = TextStyle(
+      color: AgroColors.textMuted, fontWeight: FontWeight.w600, height: 1.35);
+  static const amount =
+      TextStyle(fontWeight: FontWeight.w800, color: AgroColors.primary);
 }
 
 /// Fuente del sistema de diseño.
@@ -106,7 +109,7 @@ ThemeData buildAgroTheme() {
     useMaterial3: true,
     colorScheme: scheme,
     fontFamily: kAgroFont,
-    scaffoldBackgroundColor: AgroColors.surfaceGreen,
+    scaffoldBackgroundColor: Colors.white,
     splashFactory: InkSparkle.splashFactory,
   );
 
@@ -124,11 +127,16 @@ ThemeData buildAgroTheme() {
         color: AgroColors.primary,
         letterSpacing: -0.5,
       ),
-      titleLarge: textTheme.titleLarge?.copyWith(fontSize: 18, fontWeight: FontWeight.w700),
-      titleMedium: textTheme.titleMedium?.copyWith(fontSize: 16, fontWeight: FontWeight.w700),
-      bodyMedium: textTheme.bodyMedium?.copyWith(fontSize: 14, color: const Color(0xFF334155)),
-      bodySmall: textTheme.bodySmall?.copyWith(fontSize: 12, color: AgroColors.textMuted),
-      labelLarge: textTheme.labelLarge?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+      titleLarge: textTheme.titleLarge
+          ?.copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+      titleMedium: textTheme.titleMedium
+          ?.copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+      bodyMedium: textTheme.bodyMedium
+          ?.copyWith(fontSize: 14, color: const Color(0xFF334155)),
+      bodySmall: textTheme.bodySmall
+          ?.copyWith(fontSize: 12, color: AgroColors.textMuted),
+      labelLarge: textTheme.labelLarge
+          ?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: AgroColors.forest,
@@ -157,7 +165,8 @@ ThemeData buildAgroTheme() {
         backgroundColor: AgroColors.primary,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        textStyle: const TextStyle(fontFamily: kAgroFont, fontWeight: FontWeight.w700, fontSize: 14),
+        textStyle: const TextStyle(
+            fontFamily: kAgroFont, fontWeight: FontWeight.w700, fontSize: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
@@ -166,14 +175,16 @@ ThemeData buildAgroTheme() {
         foregroundColor: AgroColors.primary,
         side: const BorderSide(color: AgroColors.primary, width: 2),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-        textStyle: const TextStyle(fontFamily: kAgroFont, fontWeight: FontWeight.w700, fontSize: 14),
+        textStyle: const TextStyle(
+            fontFamily: kAgroFont, fontWeight: FontWeight.w700, fontSize: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: AgroColors.primary,
-        textStyle: const TextStyle(fontFamily: kAgroFont, fontWeight: FontWeight.w700),
+        textStyle:
+            const TextStyle(fontFamily: kAgroFont, fontWeight: FontWeight.w700),
       ),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -184,7 +195,8 @@ ThemeData buildAgroTheme() {
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-      labelStyle: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w500),
+      labelStyle: const TextStyle(
+          color: AgroColors.textMuted, fontWeight: FontWeight.w500),
       floatingLabelStyle: const TextStyle(
         color: AgroColors.primary,
         fontWeight: FontWeight.w700,
@@ -212,20 +224,25 @@ ThemeData buildAgroTheme() {
         borderSide: const BorderSide(color: AgroColors.danger, width: 1.6),
       ),
     ),
-    dividerTheme: const DividerThemeData(color: AgroColors.slateBorder, thickness: 1, space: 1),
+    dividerTheme: const DividerThemeData(
+        color: AgroColors.slateBorder, thickness: 1, space: 1),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: AgroColors.forest,
-      contentTextStyle: const TextStyle(fontFamily: kAgroFont, color: Colors.white),
+      contentTextStyle:
+          const TextStyle(fontFamily: kAgroFont, color: Colors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(color: AgroColors.primary),
+    progressIndicatorTheme:
+        const ProgressIndicatorThemeData(color: AgroColors.primary),
     listTileTheme: const ListTileThemeData(iconColor: AgroColors.primary),
     tabBarTheme: const TabBarThemeData(
       labelColor: AgroColors.forest,
       unselectedLabelColor: AgroColors.textMuted,
-      labelStyle: TextStyle(fontFamily: kAgroFont, fontSize: 14, fontWeight: FontWeight.w800),
-      unselectedLabelStyle: TextStyle(fontFamily: kAgroFont, fontSize: 14, fontWeight: FontWeight.w600),
+      labelStyle: TextStyle(
+          fontFamily: kAgroFont, fontSize: 14, fontWeight: FontWeight.w800),
+      unselectedLabelStyle: TextStyle(
+          fontFamily: kAgroFont, fontSize: 14, fontWeight: FontWeight.w600),
       indicatorColor: AgroColors.forest,
       indicatorSize: TabBarIndicatorSize.label,
       dividerColor: Colors.transparent,
@@ -235,8 +252,14 @@ ThemeData buildAgroTheme() {
       selectedColor: AgroColors.primary,
       secondarySelectedColor: AgroColors.primary,
       checkmarkColor: Colors.white,
-      labelStyle: const TextStyle(fontFamily: kAgroFont, fontWeight: FontWeight.w700, color: AgroColors.textDark),
-      secondaryLabelStyle: const TextStyle(fontFamily: kAgroFont, fontWeight: FontWeight.w700, color: Colors.white),
+      labelStyle: const TextStyle(
+          fontFamily: kAgroFont,
+          fontWeight: FontWeight.w700,
+          color: AgroColors.textDark),
+      secondaryLabelStyle: const TextStyle(
+          fontFamily: kAgroFont,
+          fontWeight: FontWeight.w700,
+          color: Colors.white),
       side: const BorderSide(color: AgroColors.slateBorder),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
@@ -244,13 +267,19 @@ ThemeData buildAgroTheme() {
       color: Colors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      textStyle: const TextStyle(fontFamily: kAgroFont, color: AgroColors.textDark, fontWeight: FontWeight.w600),
+      textStyle: const TextStyle(
+          fontFamily: kAgroFont,
+          color: AgroColors.textDark,
+          fontWeight: FontWeight.w600),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : null),
-      trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AgroColors.primary : null),
+      thumbColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? Colors.white : null),
+      trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? AgroColors.primary : null),
     ),
-    sliderTheme: const SliderThemeData(activeTrackColor: AgroColors.primary, thumbColor: AgroColors.primary),
+    sliderTheme: const SliderThemeData(
+        activeTrackColor: AgroColors.primary, thumbColor: AgroColors.primary),
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,

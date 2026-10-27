@@ -22,8 +22,23 @@ al depurar por USB). Para configurar otro servidor, usa `--dart-define=API_URL=.
 
    Si instalaste el SDK en otra carpeta, cambia la ruta por la ubicación de
    `platform-tools\adb.exe`. Luego ejecuta `flutter run -d ID_DEL_DISPOSITIVO`.
-   La app apunta automáticamente a `http://127.0.0.1:3000`. En el emulador Android, usa
-   `--dart-define=API_URL=http://10.0.2.2:3000`.
+   En un celular físico por USB, la app apunta a `http://127.0.0.1:3000`; `adb reverse`
+   permite que esa dirección llegue al backend de la PC incluso si el teléfono no tiene
+   Wi-Fi o datos. En el emulador Android, usa
+   `--dart-define=API_URL=http://10.0.2.2:3000`. No uses `10.0.2.2` en un celular físico.
+
+## Ver datos de ejemplo
+Para recorrer la app con datos ficticios de una finca, lotes, cultivos y cosechas sin
+conectarse ni escribir en el backend, ejecuta:
+
+```powershell
+flutter run --dart-define=DEMO=true
+```
+
+El modo de demostración incluye cultivos de ciclo y permanentes, así como varias
+cosechas del mismo cultivo permanente. La app muestra un aviso cuando presenta estos
+datos. Sin `DEMO=true`, la aplicación usa el backend configurado y los datos reales
+de la cuenta.
 
 ## Qué incluye
 - Cuenta: login, registro (dueño/comprador), recuperar contraseña, selector y creación de finca, perfil.

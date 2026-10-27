@@ -20,9 +20,13 @@ String _mime(String nombre) {
 }
 
 /// Pide una imagen: en el celular deja elegir cámara o galería; en web abre el selector de archivos.
-Future<ImagenElegida?> elegirImagen(BuildContext c, {double maxWidth = 1600}) async {
+Future<ImagenElegida?> elegirImagen(
+  BuildContext c, {
+  double maxWidth = 1600,
+  bool allowWebCamera = false,
+}) async {
   ImageSource? fuente = ImageSource.gallery;
-  if (!kIsWeb) {
+  if (!kIsWeb || allowWebCamera) {
     fuente = await showModalBottomSheet<ImageSource>(
       context: c,
       builder: (ctx) => SafeArea(

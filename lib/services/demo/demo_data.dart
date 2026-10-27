@@ -64,7 +64,7 @@ List<Map<String, dynamic>> _dashboard() => [
         'tareas_en_progreso': 2,
         'tareas_completadas': 1,
         'insumos_stock_bajo': 2,
-        'cultivos': 4,
+        'cultivos': 6,
         'miembros': 3,
         'ventas_marketplace': 26800000,
       },
@@ -152,40 +152,79 @@ List<Map<String, dynamic>> _lotes() => [
           {'tipo': 'Arroz'}
         ],
       },
+      {
+        'idlote': 5,
+        'nombre': 'Lote 5 - Frutales',
+        'areahectareas': 10,
+        'ubicacion': 'Finca San José · Ciénaga, Magdalena',
+        'descripcion': 'Mango y cítricos para cosecha por temporadas.',
+        'cultivos': [
+          {'tipo': 'Mango'}
+        ],
+      },
+      {
+        'idlote': 6,
+        'nombre': 'Lote 6 - Plátano',
+        'areahectareas': 8,
+        'ubicacion': 'Finca San José · Ciénaga, Magdalena',
+        'descripcion': 'Plátano para cosecha y renovación por ciclos.',
+        'cultivos': [
+          {'tipo': 'Plátano'}
+        ],
+      },
     ];
 
 List<Map<String, dynamic>> _cultivos() => [
       {
         'idcultivo': 1,
-        'tipo': 'Palma',
-        'nombrelote': 'Lote 1 - Palma Africana (Tenera)',
+        'tipo': 'Palma de aceite',
+        'nombrelote': 'Sector norte · Tenera',
         'idlote': {'idlote': 1, 'nombre': 'Lote 1 - Palma Africana (Tenera)'},
         'fechasiembra': '2021-03-15',
-        'fechacosechaestimada': '2026-10-18',
+        'activo': true,
       },
       {
         'idcultivo': 2,
         'tipo': 'Maíz',
-        'nombrelote': 'Lote 2 - Maíz Blanco Híbrido',
+        'nombrelote': 'Maíz blanco · ciclo 2026',
         'idlote': {'idlote': 2, 'nombre': 'Lote 2 - Maíz Blanco Híbrido'},
-        'fechasiembra': '2024-01-10',
-        'fechacosechaestimada': '2026-11-06',
+        'fechasiembra': '2026-06-10',
+        'activo': true,
       },
       {
         'idcultivo': 3,
         'tipo': 'Cacao',
-        'nombrelote': 'Lote 3 - Cacao Trinitario Fino Aroma',
-        'idlote': {'idlote': 3, 'nombre': 'Lote 3 - Cacao Trinitario Fino Aroma'},
+        'nombrelote': 'Cacao trinitario · sector central',
+        'idlote': {
+          'idlote': 3,
+          'nombre': 'Lote 3 - Cacao Trinitario Fino Aroma'
+        },
         'fechasiembra': '2022-06-20',
-        'fechacosechaestimada': '2026-10-20',
+        'activo': true,
       },
       {
         'idcultivo': 4,
         'tipo': 'Arroz',
-        'nombrelote': 'Lote 4 - Arroz Fedearroz 68',
+        'nombrelote': 'Arroz Fedearroz 68 · ciclo 2026',
         'idlote': {'idlote': 4, 'nombre': 'Lote 4 - Arroz Fedearroz 68'},
-        'fechasiembra': '2024-02-01',
-        'fechacosechaestimada': '2026-11-27',
+        'fechasiembra': '2026-07-02',
+        'activo': true,
+      },
+      {
+        'idcultivo': 5,
+        'tipo': 'Mango',
+        'nombrelote': 'Árboles adultos · variedad Tommy',
+        'idlote': {'idlote': 5, 'nombre': 'Lote 5 - Frutales'},
+        'fechasiembra': '2019-05-22',
+        'activo': true,
+      },
+      {
+        'idcultivo': 6,
+        'tipo': 'Plátano',
+        'nombrelote': 'Plátano hartón · cuadro 1',
+        'idlote': {'idlote': 6, 'nombre': 'Lote 6 - Plátano'},
+        'fechasiembra': '2025-11-12',
+        'activo': true,
       },
     ];
 
@@ -245,30 +284,57 @@ List<Map<String, dynamic>> _produccionPalma() => [
 List<Map<String, dynamic>> _cosechas() => [
       {
         'idcosecha': 1,
-        'idcultivo': 1,
-        'fechacosecha': '2026-09-12',
-        'cantidad': 18.5,
-        'unidad': 'Tn',
+        'idcultivo': {'idcultivo': 1, 'tipo': 'Palma de aceite'},
+        'fechacosecha': '2026-10-12',
+        'cantidad': 8600,
+        'unidad': 'kg',
         'calidad': 'Excelente',
-        'observaciones': 'Racimos de fruta fresca con excelente índice de madurez.',
+        'observaciones': 'Primera recolección registrada en octubre.',
       },
       {
         'idcosecha': 2,
-        'idcultivo': 3,
-        'fechacosecha': '2026-09-08',
+        'idcultivo': {'idcultivo': 3, 'tipo': 'Cacao'},
+        'fechacosecha': '2026-10-08',
         'cantidad': 850,
-        'unidad': 'Kg',
+        'unidad': 'kg',
         'calidad': 'Fino de aroma',
-        'observaciones': 'Grano fermentado 85%, secado al sol en paseras.',
+        'observaciones': 'Grano fermentado y secado al sol.',
       },
       {
         'idcosecha': 3,
-        'idcultivo': 2,
+        'idcultivo': {'idcultivo': 2, 'tipo': 'Maíz'},
         'fechacosecha': '2026-08-28',
         'cantidad': 12,
-        'unidad': 'Tn',
+        'unidad': 't',
         'calidad': 'Grado 1',
-        'observaciones': 'Grano entero, humedad 13.5%. Almacenado en silo.',
+        'observaciones': 'Grano limpio, almacenado en silo.',
+      },
+      {
+        'idcosecha': 4,
+        'idcultivo': {'idcultivo': 5, 'tipo': 'Mango'},
+        'fechacosecha': '2026-06-18',
+        'cantidad': 1250,
+        'unidad': 'kg',
+        'calidad': 'Primera',
+        'observaciones': 'Recolección de árboles adultos del lote de frutales.',
+      },
+      {
+        'idcosecha': 5,
+        'idcultivo': {'idcultivo': 5, 'tipo': 'Mango'},
+        'fechacosecha': '2026-07-03',
+        'cantidad': 780,
+        'unidad': 'kg',
+        'calidad': 'Segunda',
+        'observaciones': 'Segunda recolección del mismo cultivo.',
+      },
+      {
+        'idcosecha': 6,
+        'idcultivo': {'idcultivo': 6, 'tipo': 'Plátano'},
+        'fechacosecha': '2026-10-20',
+        'cantidad': 420,
+        'unidad': 'kg',
+        'calidad': 'Comercial',
+        'observaciones': 'Corte del cuadro 1.',
       },
     ];
 
@@ -355,7 +421,8 @@ List<Map<String, dynamic>> _tareas() => [
       },
       {
         'idtarea': 6,
-        'tipoactividad': 'Fumigación preventiva fitosanitaria contra Opsiphanes',
+        'tipoactividad':
+            'Fumigación preventiva fitosanitaria contra Opsiphanes',
         'fechaprogramada': '2026-10-18',
         'estado': 'Pendiente',
         'idcultivo': 1,
@@ -410,7 +477,13 @@ Map<String, dynamic> _suscripcion() => {
         'fechafin': '2026-11-01',
         'renovacionautomatica': true,
       },
-      'planEfectivo': {'codigo': 'PREMIUM', 'maxcultivos': null, 'maxempleados': null, 'maxfincas': null, 'comisionmarketplace': 3},
+      'planEfectivo': {
+        'codigo': 'PREMIUM',
+        'maxcultivos': null,
+        'maxempleados': null,
+        'maxfincas': null,
+        'comisionmarketplace': 3
+      },
     };
 
 List<Map<String, dynamic>> _auditoria() => [
@@ -422,12 +495,14 @@ List<Map<String, dynamic>> _auditoria() => [
       {
         'operacion': 'ACTUALIZAR',
         'tablaNombre': 'tarea',
-        'descripcion': 'Mateo Ortiz completó "Supervisión y volteo de cajones".',
+        'descripcion':
+            'Mateo Ortiz completó "Supervisión y volteo de cajones".',
       },
       {
         'operacion': 'DENEGADO',
         'tablaNombre': 'nomina',
-        'descripcion': 'Intento de acceso sin permisos a la nómina de la finca.',
+        'descripcion':
+            'Intento de acceso sin permisos a la nómina de la finca.',
       },
     ];
 
@@ -563,8 +638,9 @@ List<Map<String, dynamic>> _listados() => [
       },
     ];
 
-List<Map<String, dynamic>> _listadosDeFinca(int idfinca) =>
-    _listados().where((l) => l['idlistado'] == 1 || l['idlistado'] == 2).toList();
+List<Map<String, dynamic>> _listadosDeFinca(int idfinca) => _listados()
+    .where((l) => l['idlistado'] == 1 || l['idlistado'] == 2)
+    .toList();
 
 List<Map<String, dynamic>> _misCompras() => [
       {
@@ -642,7 +718,8 @@ List<Map<String, dynamic>> _wishlist() => [
       },
     ];
 
-List<Map<String, dynamic>> _filtrar(List<Map<String, dynamic>> items, dynamic q) {
+List<Map<String, dynamic>> _filtrar(
+    List<Map<String, dynamic>> items, dynamic q) {
   final s = (q ?? '').toString().trim().toLowerCase();
   if (s.isEmpty) return items;
   return items
@@ -714,17 +791,28 @@ Object? demoGet(String path, Map<String, dynamic> query) {
     case '/api/v1/suscripcion/pagos':
       return <Map<String, dynamic>>[];
     case '/usuarios/comprador/perfil':
-      return {'ubicacion': 'Santa Marta, Magdalena', 'radioalertaskm': 50, 'notificaciones': true};
+      return {
+        'ubicacion': 'Santa Marta, Magdalena',
+        'radioalertaskm': 50,
+        'notificaciones': true
+      };
   }
   if (path.startsWith('/detalle-tarea/tarea/')) return <Map<String, dynamic>>[];
   if (RegExp(r'^/usuarios/\d+$').hasMatch(path)) {
     final u = demoUsuario();
-    return {...u, 'primernombre': u['nombre'], 'primerapellido': u['apellido'], 'telefono': '300 123 4567', 'cedula': '1065000000'};
+    return {
+      ...u,
+      'primernombre': u['nombre'],
+      'primerapellido': u['apellido'],
+      'telefono': '300 123 4567',
+      'cedula': '1065000000'
+    };
   }
   final nomina = RegExp(r'^/api/v1/nomina/(\d+)$').firstMatch(path);
   if (nomina != null) {
     final id = int.parse(nomina.group(1)!);
-    final n = _nomina().firstWhere((x) => x['idnomina'] == id, orElse: () => _nomina().first);
+    final n = _nomina()
+        .firstWhere((x) => x['idnomina'] == id, orElse: () => _nomina().first);
     return {...n, 'detalles': <Map<String, dynamic>>[]};
   }
   // Detalle genérico: /recurso/{id} se resuelve buscando en la lista /recurso.
@@ -734,7 +822,8 @@ Object? demoGet(String path, Map<String, dynamic> query) {
     final id = int.parse(m.group(2)!);
     if (lista is List && lista.isNotEmpty) {
       for (final it in lista.cast<Map<String, dynamic>>()) {
-        final idKey = it.keys.firstWhere((k) => k.startsWith('id'), orElse: () => 'id');
+        final idKey =
+            it.keys.firstWhere((k) => k.startsWith('id'), orElse: () => 'id');
         if (it[idKey] == id) return it;
       }
       return lista.first;
@@ -775,7 +864,8 @@ class DemoInterceptor extends Interceptor {
 
     final sel = RegExp(r'/fincas/(\d+)/seleccionar').firstMatch(path);
     if (sel != null) {
-      handler.resolve(_ok(options, {'token': 'demo-token', 'idfinca': int.parse(sel.group(1)!)}));
+      handler.resolve(_ok(options,
+          {'token': 'demo-token', 'idfinca': int.parse(sel.group(1)!)}));
       return;
     }
 
