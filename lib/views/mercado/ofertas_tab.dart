@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
 import 'package:agrosmart_proto/services/api_client.dart';
+import 'package:agrosmart_proto/theme.dart';
 import 'package:agrosmart_proto/ui/design.dart';
 import 'package:agrosmart_proto/ui/imagen.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
@@ -13,6 +15,13 @@ class MisOfertasTab extends StatelessWidget {
   const MisOfertasTab({super.key});
 
   static List<String> _fotos(Map<String, dynamic> it) => [for (final f in (it['fotos'] as List?) ?? const []) s(f)];
+
+  /// Hora a la que la oferta aparecerá en el catálogo (vendedor Freemium); null si ya es visible.
+  static DateTime? _visibleDesde(Map<String, dynamic> l) {
+    if (s(l['estado']).toUpperCase() != 'PUBLICADO') return null;
+    final t = DateTime.tryParse(s(l['earlyaccesshasta']))?.toLocal();
+    return t != null && t.isAfter(DateTime.now()) ? t : null;
+  }
 
   Future<void> _agregarFoto(BuildContext ctx, Map<String, dynamic> item, VoidCallback reload) async {
     final actuales = _fotos(item);
@@ -67,11 +76,19 @@ class MisOfertasTab extends StatelessWidget {
         '${money(l['preciounitario'])}/${s(l['unidad']).isEmpty ? 'u' : s(l['unidad'])}',
         '${_fotos(l).length} foto(s)',
       ]),
-      badge: (l) => Wrap(spacing: 6, runSpacing: 6, children: [
-        StatusBadge(s(l['estado'])),
-        if (s(l['categoria']).isNotEmpty) CropBadge(s(l['categoria']), showIcon: false),
-        if (l['destacado'] == true) const StatusBadge('destacado'),
-      ]),
+      tint: (l) => _visibleDesde(l) != null ? AgroColors.warningSoft : null,
+      badge: (l) {
+        final espera = _visibleDesde(l);
+        return Wrap(spacing: 6, runSpacing: 6, children: [
+          // Plan Freemium: la oferta publicada aparece en el catálogo después de la espera.
+          if (espera != null)
+            StatusBadge('En espera · visible ${DateFormat('h:mm a', 'es').format(espera)}')
+          else
+            StatusBadge(s(l['estado'])),
+          if (s(l['categoria']).isNotEmpty) CropBadge(s(l['categoria']), showIcon: false),
+          if (l['destacado'] == true) const StatusBadge('destacado'),
+        ]);
+      },
       extra: (l) {
         final est = s(l['estado']).toUpperCase();
         return [
