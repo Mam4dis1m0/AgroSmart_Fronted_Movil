@@ -24,6 +24,10 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>AgroSmart necesita la cámara para tomar fotos de los lotes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AgroSmart necesita acceso a tus fotos para agregarlas a los lotes.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

@@ -13,8 +13,11 @@ const _envUrl = String.fromEnvironment('API_URL');
 String defaultBaseUrl() {
   if (_envUrl.isNotEmpty) return _envUrl;
   if (kIsWeb) return 'http://localhost:3000';
-  // En el emulador Android, "localhost" es el propio emulador; 10.0.2.2 es tu PC.
-  if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:3000';
+  // En un teléfono físico conectado por USB, adb reverse expone el backend en localhost.
+  // El emulador debe usar 10.0.2.2 mediante API_URL.
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    return 'http://127.0.0.1:3000';
+  }
   return 'http://localhost:3000';
 }
 
@@ -32,8 +35,10 @@ class Api {
       },
       onError: (e, h) {
         final path = e.requestOptions.path;
-        final esLogin = path.startsWith('/usuarios/login') || path.contains('/password');
-        if (e.response?.statusCode == 401 && token != null && !esLogin) onUnauthorized?.call();
+        final esLogin =
+            path.startsWith('/usuarios/login') || path.contains('/password');
+        if (e.response?.statusCode == 401 && token != null && !esLogin)
+          onUnauthorized?.call();
         h.next(e);
       },
     ));
@@ -150,7 +155,8 @@ class Api {
       }
       final code = e.response?.statusCode;
       // 401 con sesión abierta = token vencido. 401 al iniciar sesión = datos incorrectos.
-      if (code == 401 && i.token != null) return 'Tu sesión expiró. Vuelve a iniciar sesión.';
+      if (code == 401 && i.token != null)
+        return 'Tu sesión expiró. Vuelve a iniciar sesión.';
       if (d is Map && d['message'] != null) {
         final m = d['message'];
         return m is List ? m.join('\n') : m.toString();
@@ -187,10 +193,13 @@ class Api {
   }
 
   /// GET de listas. Sin red, el interceptor devuelve la última copia guardada.
-  Future<List<dynamic>> getList(String path, {Map<String, dynamic>? query}) async {
+  Future<List<dynamic>> getList(String path,
+      {Map<String, dynamic>? query}) async {
     final r = await dio.get(path, queryParameters: query);
     final d = r.data;
-    return d is List ? d : (d is Map && d['data'] is List ? d['data'] as List : <dynamic>[]);
+    return d is List
+        ? d
+        : (d is Map && d['data'] is List ? d['data'] as List : <dynamic>[]);
   }
 }
 
@@ -208,6 +217,7 @@ class _OfflineInterceptor extends Interceptor {
     '/api/v1/marketplace',
     '/api/v1/chat',
     '/api/v1/fincas',
+    '/lotes/foto',
   ];
 
   static const _errRed = {
@@ -219,7 +229,9 @@ class _OfflineInterceptor extends Interceptor {
   };
 
   bool _cacheable(RequestOptions o) =>
-      o.method == 'GET' && o.responseType == ResponseType.json && o.extra['sinCache'] != true;
+      o.method == 'GET' &&
+      o.responseType == ResponseType.json &&
+      o.extra['sinCache'] != true;
 
   String _key(RequestOptions o) {
     String q;
@@ -235,14 +247,22 @@ class _OfflineInterceptor extends Interceptor {
     if (!{'POST', 'PUT', 'PATCH', 'DELETE'}.contains(o.method)) return false;
     if (o.extra['noQueue'] == true || api.token == null) return false;
     if (_noEncolar.any(o.path.startsWith)) return false;
-    if (o.path.endsWith('/pagar') || o.path.endsWith('/confirmar')) return false;
+    if (o.path.endsWith('/pagar') || o.path.endsWith('/confirmar'))
+      return false;
     final d = o.data;
-    return d == null || d is Map || d is List || d is String; // FormData (fotos) no se encola
+    return d == null ||
+        d is Map ||
+        d is List ||
+        d is String; // FormData (fotos) no se encola
   }
 
   Response _desdeCache(RequestOptions o, String raw) {
     api.offline.value = true;
-    return Response(requestOptions: o, statusCode: 200, data: jsonDecode(raw), extra: const {'fromCache': true});
+    return Response(
+        requestOptions: o,
+        statusCode: 200,
+        data: jsonDecode(raw),
+        extra: const {'fromCache': true});
   }
 
   @override

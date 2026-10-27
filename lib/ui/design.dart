@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/theme.dart';
 
@@ -8,28 +9,41 @@ class CropBadge extends StatelessWidget {
   final bool showIcon;
   final bool large;
 
-  const CropBadge(this.type, {super.key, this.showIcon = true, this.large = false});
+  const CropBadge(this.type,
+      {super.key, this.showIcon = true, this.large = false});
 
   static const _configs = <String, _BadgeStyle>{
-    'palma': _BadgeStyle('Palma', AgroColors.surfaceGreen, AgroColors.forest, Color(0xFFB8D3C0), Icons.grass),
-    'maiz': _BadgeStyle('Maíz', AgroColors.warningBg, AgroColors.warningText, AgroColors.warningBorder, Icons.agriculture),
-    'maíz': _BadgeStyle('Maíz', AgroColors.warningBg, AgroColors.warningText, AgroColors.warningBorder, Icons.agriculture),
-    'cacao': _BadgeStyle('Cacao', Color(0xFFFFEDD5), Color(0xFF7C2D12), Color(0xFFFED7AA), Icons.eco),
-    'arroz': _BadgeStyle('Arroz', Color(0xFFECFCCB), Color(0xFF365314), Color(0xFFD9F99D), Icons.wb_sunny),
-    'cafe': _BadgeStyle('Café', Color(0xFFEDE9FE), Color(0xFF4C1D95), Color(0xFFDDD6FE), Icons.coffee),
-    'café': _BadgeStyle('Café', Color(0xFFEDE9FE), Color(0xFF4C1D95), Color(0xFFDDD6FE), Icons.coffee),
-    'cana': _BadgeStyle('Caña', AgroColors.infoBg, Color(0xFF075985), Color(0xFFBAE6FD), Icons.grass),
-    'caña': _BadgeStyle('Caña', AgroColors.infoBg, Color(0xFF075985), Color(0xFFBAE6FD), Icons.grass),
+    'palma': _BadgeStyle('Palma', AgroColors.surfaceGreen, AgroColors.forest,
+        Color(0xFFB8D3C0), Icons.grass),
+    'maiz': _BadgeStyle('Maíz', AgroColors.warningBg, AgroColors.warningText,
+        AgroColors.warningBorder, Icons.agriculture),
+    'maíz': _BadgeStyle('Maíz', AgroColors.warningBg, AgroColors.warningText,
+        AgroColors.warningBorder, Icons.agriculture),
+    'cacao': _BadgeStyle('Cacao', Color(0xFFFFEDD5), Color(0xFF7C2D12),
+        Color(0xFFFED7AA), Icons.eco),
+    'arroz': _BadgeStyle('Arroz', Color(0xFFECFCCB), Color(0xFF365314),
+        Color(0xFFD9F99D), Icons.wb_sunny),
+    'cafe': _BadgeStyle('Café', Color(0xFFEDE9FE), Color(0xFF4C1D95),
+        Color(0xFFDDD6FE), Icons.coffee),
+    'café': _BadgeStyle('Café', Color(0xFFEDE9FE), Color(0xFF4C1D95),
+        Color(0xFFDDD6FE), Icons.coffee),
+    'cana': _BadgeStyle('Caña', AgroColors.infoBg, Color(0xFF075985),
+        Color(0xFFBAE6FD), Icons.grass),
+    'caña': _BadgeStyle('Caña', AgroColors.infoBg, Color(0xFF075985),
+        Color(0xFFBAE6FD), Icons.grass),
   };
 
   @override
   Widget build(BuildContext context) {
     final key = type.toLowerCase().trim();
-    final c = _configs[key] ?? _BadgeStyle(_title(type), AgroColors.surfaceGreen, AgroColors.forest, const Color(0xFFB8D3C0), Icons.spa);
+    final c = _configs[key] ??
+        _BadgeStyle(_title(type), AgroColors.surfaceGreen, AgroColors.forest,
+            const Color(0xFFB8D3C0), Icons.spa);
     return _pill(c, showIcon: showIcon, large: large);
   }
 
-  static String _title(String v) => v.isEmpty ? 'Cultivo' : v[0].toUpperCase() + v.substring(1);
+  static String _title(String v) =>
+      v.isEmpty ? 'Cultivo' : v[0].toUpperCase() + v.substring(1);
 }
 
 /// Badge de estado (publicación, tareas, órdenes, nómina, roles, planes…).
@@ -43,50 +57,84 @@ class StatusBadge extends StatelessWidget {
   static const _styles = <String, _BadgeStyle>{
     'activa': _BadgeStyle('Activa', _ok, _okFg, null, Icons.check_circle),
     'activo': _BadgeStyle('Activo', _ok, _okFg, null, Icons.check_circle),
-    'inactivo': _BadgeStyle('Inactivo', AgroColors.neutralBg, Color(0xFF334155), null, Icons.block),
-    'sincronizado': _BadgeStyle('Sincronizado', _ok, _okFg, null, Icons.check_circle),
-    'completada': _BadgeStyle('Completada', _ok, _okFg, null, Icons.check_circle),
-    'completado': _BadgeStyle('Completada', _ok, _okFg, null, Icons.check_circle),
-    'asignado': _BadgeStyle('Asignada', AgroColors.infoBg, AgroColors.info, null, Icons.person_pin),
-    'asignada': _BadgeStyle('Asignada', AgroColors.infoBg, AgroColors.info, null, Icons.person_pin),
+    'inactivo': _BadgeStyle(
+        'Inactivo', AgroColors.neutralBg, Color(0xFF334155), null, Icons.block),
+    'sincronizado':
+        _BadgeStyle('Sincronizado', _ok, _okFg, null, Icons.check_circle),
+    'completada':
+        _BadgeStyle('Completada', _ok, _okFg, null, Icons.check_circle),
+    'completado':
+        _BadgeStyle('Completada', _ok, _okFg, null, Icons.check_circle),
+    'asignado': _BadgeStyle(
+        'Asignada', AgroColors.infoBg, AgroColors.info, null, Icons.person_pin),
+    'asignada': _BadgeStyle(
+        'Asignada', AgroColors.infoBg, AgroColors.info, null, Icons.person_pin),
     'excelente': _BadgeStyle('Excelente', _ok, _okFg, null, null),
-    'optimo': _BadgeStyle('Óptimo', AgroColors.infoBg, AgroColors.info, null, null),
-    'pausada': _BadgeStyle('Pausada', AgroColors.neutralBg, Color(0xFF334155), null, Icons.schedule),
-    'pendiente': _BadgeStyle('Pendiente', AgroColors.warningBg, AgroColors.warningText, null, Icons.schedule),
-    'en progreso': _BadgeStyle('En progreso', Color(0xFFFFEDD5), Color(0xFF9A3412), null, Icons.autorenew),
-    'atencion': _BadgeStyle('Stock bajo', AgroColors.warningBg, AgroColors.warningText, null, Icons.warning_amber),
-    'vendida': _BadgeStyle('Vendida', Color(0xFFDBEAFE), Color(0xFF1E3A8A), null, Icons.check_circle),
-    'confirmada': _BadgeStyle('Confirmada', AgroColors.infoBg, AgroColors.info, null, Icons.verified),
+    'optimo':
+        _BadgeStyle('Óptimo', AgroColors.infoBg, AgroColors.info, null, null),
+    'pausada': _BadgeStyle('Pausada', AgroColors.neutralBg, Color(0xFF334155),
+        null, Icons.schedule),
+    'pendiente': _BadgeStyle('Pendiente', AgroColors.warningBg,
+        AgroColors.warningText, null, Icons.schedule),
+    'en progreso': _BadgeStyle('En progreso', Color(0xFFFFEDD5),
+        Color(0xFF9A3412), null, Icons.autorenew),
+    'atencion': _BadgeStyle('Stock bajo', AgroColors.warningBg,
+        AgroColors.warningText, null, Icons.warning_amber),
+    'vendida': _BadgeStyle('Vendida', Color(0xFFDBEAFE), Color(0xFF1E3A8A),
+        null, Icons.check_circle),
+    'confirmada': _BadgeStyle(
+        'Confirmada', AgroColors.infoBg, AgroColors.info, null, Icons.verified),
     'pagada': _BadgeStyle('Pagada', _ok, _okFg, null, Icons.payments),
-    'anulada': _BadgeStyle('Anulada', AgroColors.dangerBg, AgroColors.dangerText, null, Icons.cancel),
-    'borrador': _BadgeStyle('Borrador', AgroColors.neutralBg, Color(0xFF334155), null, Icons.edit_note),
+    'anulada': _BadgeStyle('Anulada', AgroColors.dangerBg,
+        AgroColors.dangerText, null, Icons.cancel),
+    'borrador': _BadgeStyle('Borrador', AgroColors.neutralBg, Color(0xFF334155),
+        null, Icons.edit_note),
     'sano': _BadgeStyle('Sano', _ok, _okFg, null, Icons.check_circle),
-    'en observacion': _BadgeStyle('En observación', AgroColors.warningBg, AgroColors.warningText, null, Icons.visibility),
-    'en observación': _BadgeStyle('En observación', AgroColors.warningBg, AgroColors.warningText, null, Icons.visibility),
-    'enfermo': _BadgeStyle('Enfermo', AgroColors.dangerBg, AgroColors.dangerText, null, Icons.coronavirus),
-    'tratamiento': _BadgeStyle('Tratamiento', AgroColors.infoBg, AgroColors.info, null, Icons.medical_services),
-    'aceptada': _BadgeStyle('Aceptada', AgroColors.infoBg, AgroColors.info, null, Icons.verified),
-    'rechazada': _BadgeStyle('Rechazada', AgroColors.dangerBg, AgroColors.dangerText, null, Icons.cancel),
-    'cancelada': _BadgeStyle('Cancelada', AgroColors.neutralBg, Color(0xFF334155), null, Icons.block),
+    'en observacion': _BadgeStyle('En observación', AgroColors.warningBg,
+        AgroColors.warningText, null, Icons.visibility),
+    'en observación': _BadgeStyle('En observación', AgroColors.warningBg,
+        AgroColors.warningText, null, Icons.visibility),
+    'enfermo': _BadgeStyle('Enfermo', AgroColors.dangerBg,
+        AgroColors.dangerText, null, Icons.coronavirus),
+    'tratamiento': _BadgeStyle('Tratamiento', AgroColors.infoBg,
+        AgroColors.info, null, Icons.medical_services),
+    'aceptada': _BadgeStyle(
+        'Aceptada', AgroColors.infoBg, AgroColors.info, null, Icons.verified),
+    'rechazada': _BadgeStyle('Rechazada', AgroColors.dangerBg,
+        AgroColors.dangerText, null, Icons.cancel),
+    'cancelada': _BadgeStyle('Cancelada', AgroColors.neutralBg,
+        Color(0xFF334155), null, Icons.block),
     'cerrada': _BadgeStyle('Cerrada', _ok, _okFg, null, Icons.check_circle),
     'publicado': _BadgeStyle('Publicado', _ok, _okFg, null, Icons.check_circle),
-    'pausado': _BadgeStyle('Pausado', AgroColors.neutralBg, Color(0xFF334155), null, Icons.pause),
-    'agotado': _BadgeStyle('Agotado', AgroColors.dangerBg, AgroColors.dangerText, null, Icons.remove_shopping_cart),
-    'vencida': _BadgeStyle('Vencida', AgroColors.dangerBg, AgroColors.dangerText, null, Icons.event_busy),
+    'pausado': _BadgeStyle(
+        'Pausado', AgroColors.neutralBg, Color(0xFF334155), null, Icons.pause),
+    'agotado': _BadgeStyle('Agotado', AgroColors.dangerBg,
+        AgroColors.dangerText, null, Icons.remove_shopping_cart),
+    'vencida': _BadgeStyle('Vencida', AgroColors.dangerBg,
+        AgroColors.dangerText, null, Icons.event_busy),
     'aprobado': _BadgeStyle('Aprobado', _ok, _okFg, null, Icons.check_circle),
-    'fallido': _BadgeStyle('Fallido', AgroColors.dangerBg, AgroColors.dangerText, null, Icons.error_outline),
-    'admin': _BadgeStyle('Administrador', AgroColors.surfaceGreen, AgroColors.forest, null, Icons.shield_outlined),
-    'empleado': _BadgeStyle('Empleado', AgroColors.infoBg, AgroColors.info, null, Icons.badge_outlined),
-    'comprador': _BadgeStyle('Comprador', AgroColors.warningBg, AgroColors.warningText, null, Icons.shopping_bag_outlined),
-    'premium': _BadgeStyle('Premium', AgroColors.warningBg, AgroColors.warningText, null, Icons.workspace_premium),
-    'freemium': _BadgeStyle('Freemium', AgroColors.neutralBg, Color(0xFF334155), null, null),
-    'destacado': _BadgeStyle('Destacado', AgroColors.warningBg, AgroColors.warningText, null, Icons.star),
+    'fallido': _BadgeStyle('Fallido', AgroColors.dangerBg,
+        AgroColors.dangerText, null, Icons.error_outline),
+    'admin': _BadgeStyle('Administrador', AgroColors.surfaceGreen,
+        AgroColors.forest, null, Icons.shield_outlined),
+    'empleado': _BadgeStyle('Empleado', AgroColors.infoBg, AgroColors.info,
+        null, Icons.badge_outlined),
+    'comprador': _BadgeStyle('Comprador', AgroColors.warningBg,
+        AgroColors.warningText, null, Icons.shopping_bag_outlined),
+    'premium': _BadgeStyle('Premium', AgroColors.warningBg,
+        AgroColors.warningText, null, Icons.workspace_premium),
+    'freemium': _BadgeStyle(
+        'Freemium', AgroColors.neutralBg, Color(0xFF334155), null, null),
+    'destacado': _BadgeStyle('Destacado', AgroColors.warningBg,
+        AgroColors.warningText, null, Icons.star),
   };
 
   @override
   Widget build(BuildContext context) {
     final key = status.toLowerCase().trim();
-    final c = _styles[key] ?? _BadgeStyle(_capitalizar(status), AgroColors.neutralBg, AgroColors.textDark, null, null);
+    final c = _styles[key] ??
+        _BadgeStyle(_capitalizar(status), AgroColors.neutralBg,
+            AgroColors.textDark, null, null);
     return _pill(c, showIcon: c.icon != null, large: large);
   }
 
@@ -108,11 +156,13 @@ class _BadgeStyle {
 Widget _pill(_BadgeStyle c, {bool showIcon = true, bool large = false}) {
   final iconSize = large ? 15.0 : 13.0;
   return Container(
-    padding: EdgeInsets.symmetric(horizontal: large ? 12 : 10, vertical: large ? 6 : 4),
+    padding: EdgeInsets.symmetric(
+        horizontal: large ? 12 : 10, vertical: large ? 6 : 4),
     decoration: BoxDecoration(
       color: c.bg,
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: c.border ?? Colors.black.withValues(alpha: 0.06)),
+      border:
+          Border.all(color: c.border ?? Colors.black.withValues(alpha: 0.06)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -126,7 +176,11 @@ Widget _pill(_BadgeStyle c, {bool showIcon = true, bool large = false}) {
             c.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: c.fg, fontSize: large ? 14 : 12, fontWeight: FontWeight.w800, height: 1),
+            style: TextStyle(
+                color: c.fg,
+                fontSize: large ? 14 : 12,
+                fontWeight: FontWeight.w800,
+                height: 1),
           ),
         ),
       ],
@@ -155,14 +209,20 @@ class OfflineBanner extends StatelessWidget {
             const Expanded(
               child: Text(
                 'Sin conexión: estás viendo los últimos datos guardados',
-                style: TextStyle(color: AgroColors.forestDeep, fontSize: 12, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    color: AgroColors.forestDeep,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700),
               ),
             ),
             if (onRetry != null)
               TextButton(
                 onPressed: onRetry,
-                style: TextButton.styleFrom(foregroundColor: AgroColors.forestDeep),
-                child: const Text('Reintentar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                style: TextButton.styleFrom(
+                    foregroundColor: AgroColors.forestDeep),
+                child: const Text('Reintentar',
+                    style:
+                        TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
               ),
           ],
         ),
@@ -171,12 +231,13 @@ class OfflineBanner extends StatelessWidget {
   }
 }
 
-/// Header superior oscuro con nombre de finca y píldora de conexión.
+/// Header claro con nombre de finca y estado de conexión.
 class AgroHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool offline;
   final VoidCallback? onMenu;
+  final ValueListenable<int>? menuBadge;
   final VoidCallback? onStatus;
   final List<Widget> actions;
 
@@ -186,6 +247,7 @@ class AgroHeader extends StatelessWidget {
     this.subtitle,
     this.offline = false,
     this.onMenu,
+    this.menuBadge,
     this.onStatus,
     this.actions = const [],
   });
@@ -194,17 +256,33 @@ class AgroHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: AgroColors.forest,
-        border: Border(bottom: BorderSide(color: AgroColors.headerBorder)),
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AgroColors.slateBorder)),
       ),
-      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 4, left: 4, right: 8, bottom: 6),
+      padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + 4,
+          left: 4,
+          right: 8,
+          bottom: 6),
       child: Row(
         children: [
           if (onMenu != null)
             IconButton(
               tooltip: 'Menú',
               onPressed: onMenu,
-              icon: const Icon(Icons.menu, color: Colors.white),
+              icon: menuBadge == null
+                  ? const Icon(Icons.menu, color: AgroColors.primary)
+                  : ValueListenableBuilder<int>(
+                      valueListenable: menuBadge!,
+                      builder: (_, count, __) => Badge(
+                        isLabelVisible: count > 0,
+                        backgroundColor: AgroColors.amber,
+                        textColor: AgroColors.forestDeep,
+                        label: Text(count > 99 ? '99+' : '$count'),
+                        child:
+                            const Icon(Icons.menu, color: AgroColors.primary),
+                      ),
+                    ),
             )
           else
             const SizedBox(width: 10),
@@ -219,14 +297,21 @@ class AgroHeader extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800, height: 1.2),
+                    style: const TextStyle(
+                        color: AgroColors.textDark,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2),
                   ),
                   if (subtitle != null && subtitle!.isNotEmpty)
                     Text(
                       subtitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AgroColors.mintSoft, fontSize: 12, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          color: AgroColors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
                     ),
                 ],
               ),
@@ -250,12 +335,18 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final background = offline ? AgroColors.amber : AgroColors.surfaceGreen;
+    final foreground = offline ? AgroColors.forestDeep : AgroColors.primary;
     return Semantics(
       button: true,
-      label: offline ? 'Sin conexión. Toca para reintentar' : 'Conectado. Toca para comprobar',
+      label: offline
+          ? 'Sin conexión. Toca para reintentar'
+          : 'Conectado. Toca para comprobar',
       child: Material(
-        color: offline ? AgroColors.amber : AgroColors.forestTile,
-        shape: StadiumBorder(side: BorderSide(color: offline ? Colors.transparent : AgroColors.forestTileBorder)),
+        color: background,
+        shape: StadiumBorder(
+            side: BorderSide(
+                color: offline ? Colors.transparent : AgroColors.mintBorder)),
         child: InkWell(
           onTap: onTap,
           customBorder: const StadiumBorder(),
@@ -266,14 +357,15 @@ class _StatusPill extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(offline ? Icons.wifi_off : Icons.wifi, size: 14, color: offline ? AgroColors.forestDeep : AgroColors.mint),
+                  Icon(offline ? Icons.wifi_off : Icons.wifi,
+                      size: 14, color: foreground),
                   const SizedBox(width: 5),
                   Text(
                     offline ? 'Sin red' : 'En línea',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: offline ? AgroColors.forestDeep : AgroColors.mintPale,
+                      color: foreground,
                     ),
                   ),
                 ],
@@ -290,28 +382,104 @@ class AgroNavItem {
   final String label;
   final IconData icon;
   final int? badge;
-  const AgroNavItem(this.label, this.icon, {this.badge});
+  final bool prominent;
+  const AgroNavItem(this.label, this.icon,
+      {this.badge, this.prominent = false});
 }
 
-/// Barra de navegación inferior oscura (estilo prototipo).
+/// Barra clara con un acceso destacado al mercado cuando está disponible.
 class AgroBottomNav extends StatelessWidget {
   final int index;
   final List<AgroNavItem> items;
   final ValueChanged<int> onTap;
 
-  const AgroBottomNav({super.key, required this.index, required this.items, required this.onTap});
+  const AgroBottomNav(
+      {super.key,
+      required this.index,
+      required this.items,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final prominentIndex = items.indexWhere((item) => item.prominent);
     return Material(
-      color: AgroColors.navBg,
+      color: Colors.white,
       child: Container(
-        decoration: const BoxDecoration(border: Border(top: BorderSide(color: AgroColors.navBorder))),
-        padding: EdgeInsets.only(top: 6, bottom: MediaQuery.of(context).padding.bottom + 4, left: 4, right: 4),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [for (var i = 0; i < items.length; i++) _tab(i)],
+        decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: AgroColors.slateBorder))),
+        padding: EdgeInsets.only(
+            top: 6,
+            bottom: MediaQuery.of(context).padding.bottom + 4,
+            left: 8,
+            right: 8),
+        child: SizedBox(
+          height: prominentIndex < 0 ? 56 : 68,
+          child: Row(children: [
+            for (var i = 0; i < items.length; i++)
+              Expanded(
+                child: items[i].prominent ? _centralTab(i) : _tab(i),
+              ),
+          ]),
         ),
+      ),
+    );
+  }
+
+  Widget _centralTab(int i) {
+    final item = items[i];
+    final active = i == index;
+    final badge = item.badge ?? 0;
+    return Semantics(
+      selected: active,
+      button: true,
+      label: badge > 0 ? '${item.label}, $badge sin leer' : item.label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => onTap(i),
+        customBorder: const CircleBorder(),
+        child: Column(mainAxisAlignment: MainAxisAlignment.start, children: [
+          Transform.translate(
+            offset: const Offset(0, -7),
+            child: Badge(
+              isLabelVisible: badge > 0,
+              backgroundColor: AgroColors.amber,
+              textColor: AgroColors.forestDeep,
+              label: Text(badge > 99 ? '99+' : '$badge'),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: active ? AgroColors.primary : Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AgroColors.primary, width: 2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x2E1B4332),
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Icon(item.icon,
+                    size: 22,
+                    color: active ? Colors.white : AgroColors.primary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            item.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              height: 1,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+              color: active ? AgroColors.primary : AgroColors.textMuted,
+            ),
+          ),
+        ]),
       ),
     );
   }
@@ -320,50 +488,53 @@ class AgroBottomNav extends StatelessWidget {
     final item = items[i];
     final active = i == index;
     final badge = item.badge ?? 0;
-    return Expanded(
-      child: Semantics(
-        selected: active,
-        button: true,
-        label: badge > 0 ? '${item.label}, $badge sin leer' : item.label,
-        excludeSemantics: true,
-        child: InkWell(
-          onTap: () => onTap(i),
-          borderRadius: BorderRadius.circular(14),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: active ? AgroColors.surfaceGreen : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Badge(
-                    isLabelVisible: badge > 0,
-                    backgroundColor: AgroColors.amber,
-                    textColor: AgroColors.forestDeep,
-                    label: Text(badge > 99 ? '99+' : '$badge', style: const TextStyle(fontWeight: FontWeight.w800)),
-                    child: Icon(item.icon, size: 22, color: active ? AgroColors.forest : AgroColors.navInactive),
-                  ),
+    return Semantics(
+      selected: active,
+      button: true,
+      label: badge > 0 ? '${item.label}, $badge sin leer' : item.label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => onTap(i),
+        borderRadius: BorderRadius.circular(14),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: active ? AgroColors.surfaceGreen : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    height: 1,
-                    fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-                    color: active ? AgroColors.surfaceGreen : AgroColors.navInactive,
-                  ),
+                child: Badge(
+                  isLabelVisible: badge > 0,
+                  backgroundColor: AgroColors.amber,
+                  textColor: AgroColors.forestDeep,
+                  label: Text(badge > 99 ? '99+' : '$badge',
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  child: Icon(item.icon,
+                      size: 22,
+                      color:
+                          active ? AgroColors.primary : AgroColors.textMuted),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1,
+                  fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                  color: active ? AgroColors.primary : AgroColors.textMuted,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -399,7 +570,9 @@ class AgroCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: SizedBox(width: double.infinity, child: Padding(padding: padding, child: child)),
+        child: SizedBox(
+            width: double.infinity,
+            child: Padding(padding: padding, child: child)),
       ),
     );
   }
@@ -410,7 +583,10 @@ class AgroHeroCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
 
-  const AgroHeroCard({super.key, required this.child, this.padding = const EdgeInsets.all(14)});
+  const AgroHeroCard(
+      {super.key,
+      required this.child,
+      this.padding = const EdgeInsets.all(14)});
 
   @override
   Widget build(BuildContext context) {
@@ -446,10 +622,17 @@ class AgroSectionHeader extends StatelessWidget {
         Expanded(
           child: Semantics(
             header: true,
-            child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+            child: Text(title,
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AgroColors.textDark)),
           ),
         ),
-        if (action != null) TextButton(onPressed: onAction, child: Text(action!, style: const TextStyle(fontSize: 13))),
+        if (action != null)
+          TextButton(
+              onPressed: onAction,
+              child: Text(action!, style: const TextStyle(fontSize: 13))),
       ],
     );
   }
@@ -496,7 +679,8 @@ class AgroListCard extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) ...[const SizedBox(width: 4), trailing!] else const SizedBox(width: 8),
+          if (trailing != null) ...[const SizedBox(width: 4), trailing!] else
+            const SizedBox(width: 8),
         ],
       ),
     );
@@ -523,7 +707,8 @@ class AgroIconTile extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
       child: Icon(icon, color: color, size: size * 0.5),
     );
   }
@@ -546,7 +731,8 @@ class AgroAvatar extends StatelessWidget {
   });
 
   String get _iniciales {
-    final p = nombre.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(2);
+    final p =
+        nombre.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(2);
     return p.isEmpty ? '?' : p.map((w) => w[0].toUpperCase()).join();
   }
 
@@ -558,7 +744,9 @@ class AgroAvatar extends StatelessWidget {
       backgroundColor: bg,
       foregroundImage: hasFoto ? CachedNetworkImageProvider(url!) : null,
       onForegroundImageError: hasFoto ? (_, __) {} : null,
-      child: Text(_iniciales, style: TextStyle(fontSize: radius * 0.7, fontWeight: FontWeight.w800, color: fg)),
+      child: Text(_iniciales,
+          style: TextStyle(
+              fontSize: radius * 0.7, fontWeight: FontWeight.w800, color: fg)),
     );
   }
 }
@@ -569,16 +757,29 @@ class AgroEmpty extends StatelessWidget {
   final String message;
   final Widget? action;
 
-  const AgroEmpty({super.key, this.icon = Icons.inbox_outlined, required this.message, this.action});
+  const AgroEmpty(
+      {super.key,
+      this.icon = Icons.inbox_outlined,
+      required this.message,
+      this.action});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        AgroIconTile(icon: icon, color: AgroColors.navInactive, bg: Colors.white, size: 64),
+        AgroIconTile(
+            icon: icon,
+            color: AgroColors.navInactive,
+            bg: Colors.white,
+            size: 64),
         const SizedBox(height: 14),
-        Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600, height: 1.4)),
+        Text(message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: AgroColors.textMuted,
+                fontWeight: FontWeight.w600,
+                height: 1.4)),
         if (action != null) ...[const SizedBox(height: 14), action!],
       ]),
     );
@@ -598,12 +799,22 @@ class AgroError extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(28),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const AgroIconTile(icon: Icons.cloud_off, color: AgroColors.warning, bg: AgroColors.warningBg, size: 56),
+          const AgroIconTile(
+              icon: Icons.cloud_off,
+              color: AgroColors.warning,
+              bg: AgroColors.warningBg,
+              size: 56),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600)),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: AgroColors.textMuted, fontWeight: FontWeight.w600)),
           if (onRetry != null) ...[
             const SizedBox(height: 14),
-            OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+            OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reintentar')),
           ],
         ]),
       ),
@@ -617,7 +828,11 @@ class AgroHeroStat extends StatelessWidget {
   final String value;
   final Color valueColor;
 
-  const AgroHeroStat({super.key, required this.label, required this.value, this.valueColor = Colors.white});
+  const AgroHeroStat(
+      {super.key,
+      required this.label,
+      required this.value,
+      this.valueColor = Colors.white});
 
   @override
   Widget build(BuildContext context) {
@@ -630,12 +845,20 @@ class AgroHeroStat extends StatelessWidget {
           border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
         ),
         child: Column(children: [
-          FittedBox(child: Text(value, style: TextStyle(color: valueColor, fontSize: 20, fontWeight: FontWeight.w800))),
+          FittedBox(
+              child: Text(value,
+                  style: TextStyle(
+                      color: valueColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800))),
           const SizedBox(height: 2),
           Text(label,
               textAlign: TextAlign.center,
               maxLines: 2,
-              style: const TextStyle(color: AgroColors.mintPale, fontSize: 11, fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                  color: AgroColors.mintPale,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700)),
         ]),
       ),
     );
@@ -650,7 +873,13 @@ class AgroStatCard extends StatelessWidget {
   final Color color;
   final VoidCallback? onTap;
 
-  const AgroStatCard({super.key, required this.label, required this.value, required this.icon, this.color = AgroColors.primary, this.onTap});
+  const AgroStatCard(
+      {super.key,
+      required this.label,
+      required this.value,
+      required this.icon,
+      this.color = AgroColors.primary,
+      this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -658,18 +887,36 @@ class AgroStatCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       onTap: onTap,
       child: Row(children: [
-        AgroIconTile(icon: icon, color: color, bg: color.withValues(alpha: 0.12), size: 40),
+        AgroIconTile(
+            icon: icon,
+            color: color,
+            bg: color.withValues(alpha: 0.12),
+            size: 40),
         const SizedBox(width: 10),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AgroColors.textDark, height: 1.1)),
-            ),
-            const SizedBox(height: 2),
-            Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AgroColors.textMuted, fontWeight: FontWeight.w700)),
-          ]),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(value,
+                      style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: AgroColors.textDark,
+                          height: 1.1)),
+                ),
+                const SizedBox(height: 2),
+                Text(label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: AgroColors.textMuted,
+                        fontWeight: FontWeight.w700)),
+              ]),
         ),
       ]),
     );
@@ -683,7 +930,12 @@ class AgroAlert extends StatelessWidget {
   final String? action;
   final VoidCallback? onAction;
 
-  const AgroAlert({super.key, this.icon = Icons.warning_amber, required this.message, this.action, this.onAction});
+  const AgroAlert(
+      {super.key,
+      this.icon = Icons.warning_amber,
+      required this.message,
+      this.action,
+      this.onAction});
 
   @override
   Widget build(BuildContext context) {
@@ -698,7 +950,12 @@ class AgroAlert extends StatelessWidget {
       child: Row(children: [
         Icon(icon, size: 20, color: AgroColors.warning),
         const SizedBox(width: 8),
-        Expanded(child: Text(message, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AgroColors.warningText))),
+        Expanded(
+            child: Text(message,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AgroColors.warningText))),
         if (action != null)
           FilledButton(
             onPressed: onAction,
@@ -707,7 +964,10 @@ class AgroAlert extends StatelessWidget {
               foregroundColor: AgroColors.forestDeep,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               minimumSize: const Size(0, 36),
-              textStyle: const TextStyle(fontFamily: kAgroFont, fontSize: 12, fontWeight: FontWeight.w800),
+              textStyle: const TextStyle(
+                  fontFamily: kAgroFont,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800),
             ),
             child: Text(action!),
           ),
@@ -728,14 +988,30 @@ class PremiumNotice extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(28),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const AgroIconTile(icon: Icons.workspace_premium, color: AgroColors.warning, bg: AgroColors.warningBg, size: 64),
+          const AgroIconTile(
+              icon: Icons.workspace_premium,
+              color: AgroColors.warning,
+              bg: AgroColors.warningBg,
+              size: 64),
           const SizedBox(height: 14),
-          const Text('Función Premium', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+          const Text('Función Premium',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AgroColors.textDark)),
           const SizedBox(height: 6),
-          Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AgroColors.textMuted, fontWeight: FontWeight.w600, height: 1.4)),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: AgroColors.textMuted,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4)),
           if (onVerPlanes != null) ...[
             const SizedBox(height: 16),
-            FilledButton.icon(onPressed: onVerPlanes, icon: const Icon(Icons.workspace_premium), label: const Text('Ver planes')),
+            FilledButton.icon(
+                onPressed: onVerPlanes,
+                icon: const Icon(Icons.workspace_premium),
+                label: const Text('Ver planes')),
           ],
         ]),
       ),

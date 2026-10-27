@@ -41,7 +41,8 @@ class Session extends ChangeNotifier {
   bool get necesitaFinca => logged && !esComprador && idfinca == null;
   bool get puedeVolverAFinca => _fincaAnterior != null;
   String get nombre => (usuario?['nombre'] ?? '').toString();
-  String get nombreCompleto => '${usuario?['nombre'] ?? ''} ${usuario?['apellido'] ?? ''}'.trim();
+  String get nombreCompleto =>
+      '${usuario?['nombre'] ?? ''} ${usuario?['apellido'] ?? ''}'.trim();
   String? get foto {
     final f = usuario?['fotoperfil']?.toString();
     return f == null || f.isEmpty ? null : f;
@@ -81,7 +82,9 @@ class Session extends ChangeNotifier {
       Api.i.token = m['token'] as String?;
       usuario = (m['usuario'] as Map?)?.cast<String, dynamic>();
       idfinca = m['idfinca'] as int?;
-      fincas = ((m['fincas'] as List?) ?? []).map((e) => (e as Map).cast<String, dynamic>()).toList();
+      fincas = ((m['fincas'] as List?) ?? [])
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
       Api.i.cacheScope = '${usuario?['id']}_$idfinca';
       return Api.i.token != null;
     } catch (_) {
@@ -94,7 +97,10 @@ class Session extends ChangeNotifier {
     if (kDemoMode) return;
     final p = await SharedPreferences.getInstance();
     final json = jsonEncode({
-      'token': Api.i.token, 'usuario': usuario, 'idfinca': idfinca, 'fincas': fincas,
+      'token': Api.i.token,
+      'usuario': usuario,
+      'idfinca': idfinca,
+      'fincas': fincas,
     });
     await p.setString('session', json);
     // Copia para poder volver a entrar sin internet después de cerrar sesión.
@@ -123,20 +129,25 @@ class Session extends ChangeNotifier {
     final raw = p.getString(_kLocales);
     if (raw == null) return [];
     try {
-      return (jsonDecode(raw) as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+      return (jsonDecode(raw) as List)
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
     } catch (_) {
       return [];
     }
   }
 
-  Future<void> _guardarLocales(SharedPreferences p, List<Map<String, dynamic>> l) =>
+  Future<void> _guardarLocales(
+          SharedPreferences p, List<Map<String, dynamic>> l) =>
       p.setString(_kLocales, jsonEncode(l));
 
   Future<void> _guardarLocal(String email, String pass) async {
     final p = await SharedPreferences.getInstance();
     final em = email.trim().toLowerCase();
     final uid = usuario?['id'];
-    final l = _leerLocales(p)..removeWhere((e) => e['email'] == em || (uid != null && e['uid'] == uid));
+    final l = _leerLocales(p)
+      ..removeWhere(
+          (e) => e['email'] == em || (uid != null && e['uid'] == uid));
     final salt = DateTime.now().microsecondsSinceEpoch.toString();
     l.add({
       'email': em,
@@ -197,18 +208,17 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> login(String email, String pass) async {
-    // Sin ninguna red: ni se intenta con el servidor.
-    if (!kDemoMode && await Api.i.sinRed()) {
-      await _loginLocal(email, pass);
-      return;
-    }
+    // Connectivity no detecta rutas locales como adb reverse; intenta la API y
+    // usa la sesión local solo si la conexión al servidor falla.
     try {
-      final r = await Api.i.dio.post('/usuarios/login', data: {'email': email, 'contrasena': pass});
+      final r = await Api.i.dio
+          .post('/usuarios/login', data: {'email': email, 'contrasena': pass});
       await _aplicar(r.data as Map<String, dynamic>);
       if (!kDemoMode) await _guardarLocal(email, pass);
     } on DioException catch (e) {
       // Wi-Fi sin internet o servidor caído: se intenta con la cuenta guardada en el celular.
-      final sinServidor = e.response == null && e.type != DioExceptionType.cancel;
+      final sinServidor =
+          e.response == null && e.type != DioExceptionType.cancel;
       if (sinServidor && !kDemoMode && await _loginLocal(email, pass)) return;
       rethrow;
     }
@@ -216,7 +226,8 @@ class Session extends ChangeNotifier {
 
   /// Login con Google: `credential` es el idToken (el backend lo valida con GOOGLE_CLIENT_ID).
   Future<void> loginGoogle(String credential) async {
-    final r = await Api.i.dio.post('/usuarios/login-google', data: {'credential': credential});
+    final r = await Api.i.dio
+        .post('/usuarios/login-google', data: {'credential': credential});
     await _aplicar(r.data as Map<String, dynamic>);
   }
 
@@ -225,7 +236,9 @@ class Session extends ChangeNotifier {
     Api.i.token = d['token'] as String?;
     usuario = (d['usuario'] as Map).cast<String, dynamic>();
     idfinca = d['idfinca'] as int?;
-    fincas = ((d['fincas'] as List?) ?? []).map((e) => (e as Map).cast<String, dynamic>()).toList();
+    fincas = ((d['fincas'] as List?) ?? [])
+        .map((e) => (e as Map).cast<String, dynamic>())
+        .toList();
     requiereSeleccionFinca = d['requiereSeleccionFinca'] == true;
     _fincaAnterior = null;
     // Con una sola finca el rol efectivo es el de esa finca.
@@ -253,12 +266,24 @@ class Session extends ChangeNotifier {
   /// CU-35: registra una finca; el backend la deja activa en el token devuelto.
   Future<void> crearFinca(Map<String, dynamic> data) async {
     final r = await Api.i.dio.post('/api/v1/fincas', data: data);
-    final d = r.data is Map ? (r.data as Map).cast<String, dynamic>() : <String, dynamic>{};
+    final d = r.data is Map
+        ? (r.data as Map).cast<String, dynamic>()
+        : <String, dynamic>{};
     if (d['token'] != null) Api.i.token = d['token'] as String?;
-    final f = d['finca'] is Map ? (d['finca'] as Map).cast<String, dynamic>() : null;
+    final f =
+        d['finca'] is Map ? (d['finca'] as Map).cast<String, dynamic>() : null;
     final nuevo = (f?['idfinca'] ?? d['idfinca']) as int?;
     if (nuevo != null) {
-      fincas = [...fincas, {'rol': 'admin', 'plan': 'FREEMIUM', ...?f, 'idfinca': nuevo, 'nombre': f?['nombre'] ?? data['nombre']}];
+      fincas = [
+        ...fincas,
+        {
+          'rol': 'admin',
+          'plan': 'FREEMIUM',
+          ...?f,
+          'idfinca': nuevo,
+          'nombre': f?['nombre'] ?? data['nombre']
+        }
+      ];
       idfinca = nuevo;
       _fincaAnterior = null;
       usuario?['role'] = 'admin';
