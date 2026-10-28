@@ -31,13 +31,32 @@ class Tarea extends AgroModel {
         for (final a in (raw['asignacionTareas'] as List?) ?? const []) (a as Map).cast<String, dynamic>(),
       ];
 
-  /// Asignación vigente (la más reciente).
+  /// Asignación vigente (la más reciente que no fue reasignada a otra persona).
   Map<String, dynamic>? get asignacion {
-    final l = asignaciones;
+    final l = asignaciones.where((a) => a['estado'] != 'Reasignada').toList();
     if (l.isEmpty) return null;
     l.sort((a, b) => ((b['idasigtarea'] as num?) ?? 0).compareTo((a['idasigtarea'] as num?) ?? 0));
     return l.first;
   }
+
+  String get prioridad => (raw['prioridad'] ?? 'Media').toString();
+
+  /// Hora real en que alguien empezó a trabajar la tarea (null si aún no).
+  DateTime? get inicioReal => DateTime.tryParse((asignacion?['fechainicio'] ?? raw['fechainicio'] ?? '').toString())?.toLocal();
+
+  /// La asignación vigente ya empezó y no ha terminado: el cronómetro está corriendo.
+  bool get enCurso => !completada && asignacion?['fechainicio'] != null && asignacion?['fechafin'] == null;
+
+  /// Pasó la fecha programada y la tarea sigue abierta.
+  bool get atrasada {
+    if (completada) return false;
+    final f = DateTime.tryParse(fechaprogramada);
+    if (f == null) return false;
+    final hoy = DateTime.now();
+    return f.isBefore(DateTime(hoy.year, hoy.month, hoy.day));
+  }
+
+  double get costoReal => (raw['costoreal'] as num?)?.toDouble() ?? 0;
 
   String get empleadoNombre {
     final e = asignacion?['idempleado'];

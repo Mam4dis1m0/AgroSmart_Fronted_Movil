@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/models/operacion.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
@@ -5,6 +6,7 @@ import 'package:agrosmart_proto/providers/session_provider.dart';
 import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/theme.dart';
 import 'package:agrosmart_proto/ui/design.dart';
+import 'package:agrosmart_proto/ui/imagen.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
 import 'tareas_view.dart';
 
@@ -16,15 +18,115 @@ class TareaDetallePage extends StatefulWidget {
   State<TareaDetallePage> createState() => _TareaDetallePageState();
 }
 
+/// Tiempo transcurrido como `2 h 05 min` (o `35 min` si es menos de una hora).
+String _duracion(Duration d) {
+  final h = d.inHours, m = d.inMinutes.remainder(60);
+  return h > 0 ? '$h h ${m.toString().padLeft(2, '0')} min' : '$m min';
+}
+
+/// Cronómetro de la asignación en curso: se actualiza cada segundo mientras está visible.
+class _Cronometro extends StatefulWidget {
+  final DateTime inicio;
+  const _Cronometro(this.inicio);
+  @override
+  State<_Cronometro> createState() => _CronometroState();
+}
+
+class _CronometroState extends State<_Cronometro> {
+  late final Timer _t = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+
+  @override
+  void dispose() {
+    _t.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = DateTime.now().difference(widget.inicio);
+    final s = d.inSeconds < 0 ? 0 : d.inSeconds;
+    String dos(int v) => v.toString().padLeft(2, '0');
+    return Text('${dos(s ~/ 3600)}:${dos((s % 3600) ~/ 60)}:${dos(s % 60)}',
+        style: AgroText.title.copyWith(fontSize: 22, fontFeatures: const [FontFeature.tabularFigures()]));
+  }
+}
+
 class _TareaDetallePageState extends State<TareaDetallePage> {
   late Future<(Tarea, List<Map<String, dynamic>>)> _f = _load();
+
+  /// Propuestas del sistema (sin red o si fallan, simplemente no se muestran).
+  List<Map<String, dynamic>> _sugeridos = const [];
+  Map<String, dynamic>? _costos;
+  List<Map<String, dynamic>> _evidencias = const [];
 
   Future<(Tarea, List<Map<String, dynamic>>)> _load() async {
     final r = await Future.wait<dynamic>([
       operacionService.tarea(widget.idtarea),
       operacionService.insumosDeTarea(widget.idtarea).catchError((_) => <Map<String, dynamic>>[]),
+      operacionService.insumosSugeridos(widget.idtarea).catchError((_) => <Map<String, dynamic>>[]),
+      operacionService.evidencias(widget.idtarea).catchError((_) => <Map<String, dynamic>>[]),
+      if (esAdmin) operacionService.costosTarea(widget.idtarea).then<Map<String, dynamic>?>((m) => m).catchError((_) => null),
     ]);
+    _sugeridos = (r[2] as List).cast<Map<String, dynamic>>();
+    _evidencias = (r[3] as List).cast<Map<String, dynamic>>();
+    _costos = esAdmin ? r[4] as Map<String, dynamic>? : null;
     return (r[0] as Tarea, (r[1] as List).cast<Map<String, dynamic>>());
+  }
+
+  Future<void> _agregarFoto() async {
+    final img = await elegirImagen(context, maxWidth: 1400);
+    if (img == null || !mounted) return;
+    final obs = await showForm(context, 'Foto de la tarea', const [
+      FieldDef('observaciones', 'Nota (opcional)', type: FT.multiline),
+    ], okLabel: 'Guardar foto', edit: false);
+    if (obs == null || !mounted) return;
+    var enCola = false;
+    final ok = await run(context, () async {
+      enCola = await operacionService.agregarEvidencia(widget.idtarea,
+          foto: img.bytes, nombreArchivo: img.nombre, observaciones: s(obs['observaciones']));
+    });
+    if (!ok || !mounted) return;
+    snack(context, enCola ? 'Sin conexión: la foto se subirá al volver la red' : 'Foto guardada');
+    _recargar();
+  }
+
+  void _verFoto(Map<String, dynamic> e) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          InteractiveViewer(child: Image.network(s(e['url']), fit: BoxFit.contain)),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              juntar([fecha(e['fecha'], hora: true), s(e['autor']), s(e['observaciones'])]),
+              style: AgroText.muted,
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  /// Un toque confirma la cantidad propuesta; si falta el insumo o la cantidad, o se quiere cambiar, se edita antes.
+  Future<void> _usarSugerido(Map<String, dynamic> sug, {bool editar = false}) async {
+    var datos = <String, dynamic>{'idinsumo': sug['idinsumo'], 'cantidadusada': sug['cantidad']};
+    if (editar || sug['idinsumo'] == null || sug['cantidad'] == null) {
+      final cands = [for (final c in (sug['candidatos'] as List? ?? const [])) (c as Map).cast<String, dynamic>()];
+      final opc = cands.isNotEmpty
+          ? [for (final c in cands) MapEntry(c['idinsumo'], '${c['nombre']} (${cant(c['stockactual'])} ${s(c['unidadmedida'])} disp.)'.trim())]
+          : await cargar(context, operacionService.insumosOpc);
+      if (opc == null || !mounted) return;
+      final d = await showForm(context, 'Insumo usado', [
+        FieldDef('idinsumo', 'Insumo', type: FT.select, required: true, options: opc),
+        FieldDef('cantidadusada', 'Cantidad usada${s(sug['unidad']).isEmpty ? '' : ' (${s(sug['unidad'])})'}', type: FT.number, required: true, min: 0),
+      ], initial: datos, okLabel: 'Registrar', edit: false);
+      if (d == null || !mounted) return;
+      datos = d;
+    }
+    if (await run(context, () => operacionService.registrarInsumoUsado(widget.idtarea, datos, nombre: s(sug['nombre']), unidad: s(sug['unidad'])), ok: 'Insumo registrado y descontado del stock')) {
+      _recargar();
+    }
   }
 
   void _recargar() => setState(() => _f = _load());
@@ -105,13 +207,33 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                     Row(children: [
                       Expanded(child: Text(t.actividad, style: AgroText.title.copyWith(fontSize: 17))),
                       if (t.estado.isNotEmpty) StatusBadge(t.estado),
+                      if (t.atrasada) ...[const SizedBox(width: 6), const StatusBadge('Atrasada')],
                     ]),
                     const SizedBox(height: 10),
                     InfoRow('Fecha programada', fecha(t.fechaprogramada)),
                     InfoRow('Cultivo', t.cultivoNombre),
+                    InfoRow('Prioridad', t.prioridad),
+                    if (n(t.raw['horasestimadas']) > 0) InfoRow('Tiempo estimado', '${cant(t.raw['horasestimadas'])} h'),
                     if (n(t.raw['costototal']) > 0) InfoRow('Costo estimado', money(t.raw['costototal'])),
+                    if (t.costoReal > 0) InfoRow('Costo real', money(t.costoReal), strong: true),
                   ]),
                 ),
+                if (t.enCurso && t.inicioReal != null) ...[
+                  const SizedBox(height: 14),
+                  AgroCard(
+                    color: AgroColors.surfaceGreen,
+                    child: Row(children: [
+                      const Icon(Icons.timer_outlined, color: AgroColors.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Text('En curso', style: AgroText.muted),
+                          _Cronometro(t.inicioReal!),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 const AgroSectionHeader('Asignación'),
                 const SizedBox(height: 8),
@@ -138,6 +260,9 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                           const SizedBox(height: 8),
                           InfoRow('Asignada el', fecha(asig['fechaasignacion'])),
                           if (n(asig['pagoacordado']) > 0) InfoRow('Pago acordado', money(asig['pagoacordado'])),
+                          if (t.inicioReal != null) InfoRow('Inicio real', fecha(t.inicioReal, hora: true)),
+                          if (asig['fechafin'] != null && t.inicioReal != null)
+                            InfoRow('Duración', _duracion(DateTime.parse('${asig['fechafin']}').toLocal().difference(t.inicioReal!))),
                           InfoRow('Horas trabajadas', cant(asig['horastrabajadas'])),
                           InfoRow('Jornales trabajados', cant(asig['jornadastrabajadas'])),
                           const SizedBox(height: 6),
@@ -152,6 +277,65 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                         ]),
                 ),
                 const SizedBox(height: 14),
+                AgroSectionHeader('Evidencia', action: 'Agregar foto', onAction: _agregarFoto),
+                const SizedBox(height: 8),
+                if (_evidencias.isEmpty)
+                  const AgroEmpty(icon: Icons.photo_library_outlined, message: 'Aún no hay fotos de esta tarea')
+                else
+                  SizedBox(
+                    height: 96,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _evidencias.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (_, i) => GestureDetector(
+                        onTap: () => _verFoto(_evidencias[i]),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            s(_evidencias[i]['url']),
+                            width: 96,
+                            height: 96,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 96,
+                              height: 96,
+                              color: AgroColors.neutralBg,
+                              child: const Icon(Icons.broken_image_outlined),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 14),
+                if (!t.completada && _sugeridos.isNotEmpty) ...[
+                  const AgroSectionHeader('Sugeridos para esta labor'),
+                  const SizedBox(height: 8),
+                  for (final sug in _sugeridos)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: AgroListCard(
+                        onTap: () => _usarSugerido(sug, editar: true),
+                        leading: const AgroIconTile(icon: Icons.auto_awesome),
+                        title: Text(s(sug['nombre']), style: AgroText.title),
+                        subtitle: Text(
+                          juntar([
+                            sug['cantidad'] == null ? 'Indica la cantidad' : 'Sugerido: ${cant(sug['cantidad'])} ${s(sug['unidad'])}'.trim(),
+                            if (sug['stockactual'] != null) 'Disponible ${cant(sug['stockactual'])}',
+                            if (sug['idinsumo'] == null) 'Elige un insumo',
+                          ]),
+                          style: AgroText.muted,
+                        ),
+                        trailing: IconButton(
+                          tooltip: 'Confirmar',
+                          icon: const Icon(Icons.check_circle_outline, color: AgroColors.primary),
+                          onPressed: () => _usarSugerido(sug),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                ],
                 AgroSectionHeader('Insumos usados', action: t.completada ? null : 'Registrar', onAction: _registrarInsumo),
                 const SizedBox(height: 8),
                 if (insumos.isEmpty)
@@ -176,8 +360,22 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                             : null,
                       ),
                     ),
-                  if (costoInsumos > 0)
+                  if (costoInsumos > 0 && _costos == null)
                     AgroCard(color: AgroColors.surfaceGreen, child: InfoRow('Costo de insumos', money(costoInsumos), strong: true)),
+                ],
+                if (_costos != null && (n(_costos!['total']) > 0 || n(_costos!['estimado']) > 0)) ...[
+                  const SizedBox(height: 14),
+                  const AgroSectionHeader('Costos'),
+                  const SizedBox(height: 8),
+                  AgroCard(
+                    child: Column(children: [
+                      if (n(_costos!['estimado']) > 0) InfoRow('Estimado', money(_costos!['estimado'])),
+                      InfoRow('Insumos', money(_costos!['insumos'])),
+                      InfoRow('Mano de obra', money(_costos!['manoObra'])),
+                      if (n(_costos!['transporte']) > 0) InfoRow('Transporte', money(_costos!['transporte'])),
+                      InfoRow(t.completada ? 'Costo real' : 'Costo hasta ahora', money(_costos!['total']), strong: true),
+                    ]),
+                  ),
                 ],
                 if (!t.completada && (session.esEmpleado || esAdmin)) ...[
                   const SizedBox(height: 20),
