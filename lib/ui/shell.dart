@@ -193,7 +193,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                           textColor: AgroColors.forestDeep,
                           label: Text('$nMsj'),
                           child: const Icon(Icons.chat_bubble_outline,
-                              color: AgroColors.primary),
+                              color: AgroColors.mintPale),
                         ),
                       ),
                     ),
@@ -308,7 +308,13 @@ class _AgroDrawer extends StatelessWidget {
       child: Column(children: [
         Container(
           width: double.infinity,
-          color: AgroColors.forest,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AgroColors.forest, AgroColors.heroMid, AgroColors.heroEnd],
+            ),
+          ),
           padding: EdgeInsets.fromLTRB(
               20, MediaQuery.of(context).padding.top + 20, 20, 20),
           child:

@@ -260,8 +260,12 @@ class AgroHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AgroColors.slateBorder)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AgroColors.forest, AgroColors.heroMid, AgroColors.heroEnd],
+        ),
+        border: Border(bottom: BorderSide(color: AgroColors.heroBorder)),
       ),
       padding: EdgeInsets.only(
           top: MediaQuery.of(context).padding.top + 4,
@@ -275,7 +279,7 @@ class AgroHeader extends StatelessWidget {
               tooltip: 'Menú',
               onPressed: onMenu,
               icon: menuBadge == null
-                  ? const Icon(Icons.menu, color: AgroColors.primary)
+                  ? const Icon(Icons.menu, color: AgroColors.mintPale)
                   : ValueListenableBuilder<int>(
                       valueListenable: menuBadge!,
                       builder: (_, count, __) => Badge(
@@ -284,7 +288,7 @@ class AgroHeader extends StatelessWidget {
                         textColor: AgroColors.forestDeep,
                         label: Text(count > 99 ? '99+' : '$count'),
                         child:
-                            const Icon(Icons.menu, color: AgroColors.primary),
+                            const Icon(Icons.menu, color: AgroColors.mintPale),
                       ),
                     ),
             )
@@ -302,7 +306,7 @@ class AgroHeader extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        color: AgroColors.textDark,
+                        color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         height: 1.2),
@@ -313,7 +317,7 @@ class AgroHeader extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          color: AgroColors.textMuted,
+                          color: AgroColors.mintPale,
                           fontSize: 12,
                           fontWeight: FontWeight.w600),
                     ),
@@ -339,8 +343,9 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = offline ? AgroColors.amber : AgroColors.surfaceGreen;
-    final foreground = offline ? AgroColors.forestDeep : AgroColors.primary;
+    final background =
+        offline ? AgroColors.amber : Colors.white.withValues(alpha: 0.12);
+    final foreground = offline ? AgroColors.forestDeep : AgroColors.mintPale;
     return Semantics(
       button: true,
       label: offline
@@ -350,7 +355,9 @@ class _StatusPill extends StatelessWidget {
         color: background,
         shape: StadiumBorder(
             side: BorderSide(
-                color: offline ? Colors.transparent : AgroColors.mintBorder)),
+                color: offline
+                    ? Colors.transparent
+                    : Colors.white.withValues(alpha: 0.22))),
         child: InkWell(
           onTap: onTap,
           customBorder: const StadiumBorder(),
@@ -391,7 +398,7 @@ class AgroNavItem {
       {this.badge, this.prominent = false});
 }
 
-/// Barra clara con un acceso destacado al mercado cuando está disponible.
+/// Barra verde con un acceso destacado al mercado cuando está disponible.
 class AgroBottomNav extends StatelessWidget {
   final int index;
   final List<AgroNavItem> items;
@@ -407,10 +414,15 @@ class AgroBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final prominentIndex = items.indexWhere((item) => item.prominent);
     return Material(
-      color: Colors.white,
+      color: AgroColors.forest,
       child: Container(
         decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: AgroColors.slateBorder))),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AgroColors.forest, AgroColors.heroMid],
+            ),
+            border: Border(top: BorderSide(color: AgroColors.heroBorder))),
         padding: EdgeInsets.only(
             top: 6,
             bottom: MediaQuery.of(context).padding.bottom + 4,
@@ -454,12 +466,14 @@ class AgroBottomNav extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: active ? AgroColors.primary : Colors.white,
+                  color: active ? AgroColors.lime : AgroColors.heroMid,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AgroColors.primary, width: 2),
+                  border: Border.all(
+                      color: active ? AgroColors.lime : AgroColors.heroBorder,
+                      width: 2),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x2E1B4332),
+                      color: Color(0x5542C66B),
                       blurRadius: 8,
                       offset: Offset(0, 3),
                     ),
@@ -467,7 +481,7 @@ class AgroBottomNav extends StatelessWidget {
                 ),
                 child: Icon(item.icon,
                     size: 22,
-                    color: active ? Colors.white : AgroColors.primary),
+                    color: active ? AgroColors.forest : AgroColors.mintPale),
               ),
             ),
           ),
@@ -480,7 +494,7 @@ class AgroBottomNav extends StatelessWidget {
               fontSize: 11,
               height: 1,
               fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-              color: active ? AgroColors.primary : AgroColors.textMuted,
+              color: active ? AgroColors.lime : AgroColors.navInactive,
             ),
           ),
         ]),
@@ -511,7 +525,9 @@ class AgroBottomNav extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 decoration: BoxDecoration(
-                  color: active ? AgroColors.surfaceGreen : Colors.transparent,
+                  color: active
+                      ? Colors.white.withValues(alpha: 0.14)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Badge(
@@ -522,8 +538,7 @@ class AgroBottomNav extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w800)),
                   child: Icon(item.icon,
                       size: 22,
-                      color:
-                          active ? AgroColors.primary : AgroColors.textMuted),
+                      color: active ? AgroColors.lime : AgroColors.navInactive),
                 ),
               ),
               const SizedBox(height: 3),
@@ -535,7 +550,7 @@ class AgroBottomNav extends StatelessWidget {
                   fontSize: 11,
                   height: 1,
                   fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-                  color: active ? AgroColors.primary : AgroColors.textMuted,
+                  color: active ? AgroColors.lime : AgroColors.navInactive,
                 ),
               ),
             ],
@@ -552,6 +567,7 @@ class AgroCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
   final Color? color;
+  final Gradient? gradient;
 
   const AgroCard({
     super.key,
@@ -559,6 +575,7 @@ class AgroCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.onTap,
     this.color,
+    this.gradient,
   });
 
   @override
@@ -569,14 +586,23 @@ class AgroCard extends StatelessWidget {
     );
     // Material + InkWell dentro: el ripple se pinta encima del fondo y se ve al tocar.
     return Material(
-      color: color ?? Colors.white,
+      color: Colors.transparent,
       shape: shape,
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-            width: double.infinity,
-            child: Padding(padding: padding, child: child)),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: gradient == null ? color ?? Colors.white : null,
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(18),
+          border: const Border.fromBorderSide(
+              BorderSide(color: AgroColors.slateBorder)),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+              width: double.infinity,
+              child: Padding(padding: padding, child: child)),
+        ),
       ),
     );
   }
@@ -651,6 +677,7 @@ class AgroListCard extends StatelessWidget {
   final Widget? badges;
   final VoidCallback? onTap;
   final Color? tint;
+  final Gradient? gradient;
 
   const AgroListCard({
     super.key,
@@ -661,6 +688,7 @@ class AgroListCard extends StatelessWidget {
     this.badges,
     this.onTap,
     this.tint,
+    this.gradient,
   });
 
   @override
@@ -668,6 +696,7 @@ class AgroListCard extends StatelessWidget {
     return AgroCard(
       onTap: onTap,
       color: tint,
+      gradient: gradient,
       padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -714,6 +743,49 @@ class AgroIconTile extends StatelessWidget {
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
       child: Icon(icon, color: color, size: size * 0.5),
+    );
+  }
+}
+
+/// Miniatura de producto agrícola con respaldo cuando la foto no está disponible.
+class AgroProductThumb extends StatelessWidget {
+  final String? url;
+  final double size;
+
+  const AgroProductThumb({super.key, this.url, this.size = 50});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = (url ?? '').trim();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: imageUrl.isEmpty
+            ? const _Fallback()
+            : CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => const _Fallback(),
+                errorWidget: (_, __, ___) => const _Fallback(),
+              ),
+      ),
+    );
+  }
+}
+
+class _Fallback extends StatelessWidget {
+  const _Fallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: AgroColors.surfaceLime,
+      child: Center(
+        child: Icon(Icons.agriculture_rounded,
+            color: AgroColors.primaryLight, size: 23),
+      ),
     );
   }
 }

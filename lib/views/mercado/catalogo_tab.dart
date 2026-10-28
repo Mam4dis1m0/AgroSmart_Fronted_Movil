@@ -16,7 +16,8 @@ class CatalogoTab extends StatefulWidget {
   State<CatalogoTab> createState() => _CatalogoTabState();
 }
 
-class _CatalogoTabState extends State<CatalogoTab> with AutomaticKeepAliveClientMixin {
+class _CatalogoTabState extends State<CatalogoTab>
+    with AutomaticKeepAliveClientMixin {
   static const _pagina = 20;
   final _q = TextEditingController();
   final _scroll = ScrollController();
@@ -37,7 +38,8 @@ class _CatalogoTabState extends State<CatalogoTab> with AutomaticKeepAliveClient
   void initState() {
     super.initState();
     _scroll.addListener(() {
-      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 300) _cargar();
+      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 300)
+        _cargar();
     });
     _q.addListener(() => setState(() {}));
     _reiniciar();
@@ -97,7 +99,9 @@ class _CatalogoTabState extends State<CatalogoTab> with AutomaticKeepAliveClient
       if (_radio == 0) _radio = 50;
     }
     if (_lat == null || _lng == null) {
-      if (mounted) snack(context, 'Configura tu latitud y longitud en Perfil › Alertas de ofertas cercanas');
+      if (mounted)
+        snack(context,
+            'Configura tu latitud y longitud en Perfil › Alertas de ofertas cercanas');
       return;
     }
     setState(() => _cerca = true);
@@ -107,102 +111,408 @@ class _CatalogoTabState extends State<CatalogoTab> with AutomaticKeepAliveClient
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-        child: TextField(
-          controller: _q,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (v) {
-            _query = v.trim();
-            _reiniciar();
-          },
-          decoration: InputDecoration(
-            hintText: 'Buscar productos agrícolas…',
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: _q.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: 'Limpiar búsqueda',
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      _q.clear();
-                      _query = '';
-                      _reiniciar();
-                    },
+    return Container(
+      color: AgroColors.page,
+      child: Column(children: [
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _reiniciar,
+            child: CustomScrollView(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    child: _MarketplaceHero(
+                        onPublish: esAdmin
+                            ? () =>
+                                DefaultTabController.of(context).animateTo(1)
+                            : null),
                   ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      elevation: 1,
+                      shadowColor: AgroColors.forest.withValues(alpha: 0.08),
+                      child: TextField(
+                        controller: _q,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (v) {
+                          _query = v.trim();
+                          _reiniciar();
+                        },
+                        decoration: InputDecoration(
+                          hintText: '¿Qué producto estás buscando?',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _q.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Limpiar búsqueda',
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _q.clear();
+                                    _query = '';
+                                    _reiniciar();
+                                  },
+                                ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide:
+                                const BorderSide(color: AgroColors.slateBorder),
+                          ),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 42,
+                    child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: [
+                          if (session.esComprador)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                avatar: Icon(Icons.near_me_rounded,
+                                    size: 16,
+                                    color: _cerca
+                                        ? Colors.white
+                                        : AgroColors.primary),
+                                label: Text(
+                                    _cerca ? 'A $_radio km' : 'Cerca de mí'),
+                                selected: _cerca,
+                                showCheckmark: false,
+                                onSelected: (_) => _toggleCerca(),
+                              ),
+                            ),
+                          for (final c in kCategorias)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                avatar: Icon(
+                                  _iconoCategoria(c),
+                                  size: 15,
+                                  color: _categoria == c
+                                      ? Colors.white
+                                      : AgroColors.primary,
+                                ),
+                                label: Text(c),
+                                selected: _categoria == c,
+                                onSelected: (_) {
+                                  setState(() =>
+                                      _categoria = _categoria == c ? null : c);
+                                  _reiniciar();
+                                },
+                              ),
+                            ),
+                        ]),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 19, 16, 11),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _query.isEmpty && _categoria == null
+                                    ? 'Productos frescos'
+                                    : 'Resultados para ti',
+                                style: const TextStyle(
+                                  color: AgroColors.forest,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _items.isEmpty
+                                    ? 'Directo de las fincas de la región'
+                                    : '${_items.length} productos para descubrir',
+                                style: const TextStyle(
+                                  color: AgroColors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AgroColors.surfaceLime,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.eco_rounded,
+                                  size: 15, color: AgroColors.primary),
+                              SizedBox(width: 4),
+                              Text(
+                                'Compra local',
+                                style: TextStyle(
+                                    color: AgroColors.primary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_cargando && _items.isNotEmpty)
+                  const SliverToBoxAdapter(
+                      child: LinearProgressIndicator(minHeight: 2)),
+                ..._catalogoSlivers(),
+              ],
+            ),
           ),
         ),
-      ),
-      SizedBox(
-        height: 44,
-        child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
-          if (session.esComprador)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                avatar: Icon(Icons.near_me, size: 16, color: _cerca ? Colors.white : AgroColors.primary),
-                label: Text(_cerca ? 'A $_radio km' : 'Cerca de mí'),
-                selected: _cerca,
-                showCheckmark: false,
-                onSelected: (_) => _toggleCerca(),
-              ),
-            ),
-          for (final c in kCategorias)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(c),
-                selected: _categoria == c,
-                onSelected: (_) {
-                  setState(() => _categoria = _categoria == c ? null : c);
-                  _reiniciar();
-                },
-              ),
-            ),
-        ]),
-      ),
-      if (_cargando && _items.isNotEmpty) const LinearProgressIndicator(minHeight: 2),
-      Expanded(child: _lista()),
-    ]);
+      ]),
+    );
   }
 
-  Widget _lista() {
+  IconData _iconoCategoria(String categoria) => switch (categoria) {
+        'Café' => Icons.coffee_rounded,
+        'Cacao' => Icons.park_rounded,
+        'Maíz' => Icons.grain_rounded,
+        'Arroz' => Icons.rice_bowl_rounded,
+        'Palma' || 'Caña' => Icons.grass_rounded,
+        'Frutas' => Icons.eco_rounded,
+        'Hortalizas' => Icons.spa_rounded,
+        _ => Icons.category_outlined,
+      };
+
+  List<Widget> _catalogoSlivers() {
     if (_items.isEmpty) {
-      if (_cargando) return const Center(child: CircularProgressIndicator());
-      if (_error != null) return AgroError(message: Api.errorMsg(_error!), onRetry: _reiniciar);
-      return RefreshIndicator(
-        onRefresh: _reiniciar,
-        child: ListView(children: [
-          AgroEmpty(
-            icon: Icons.storefront,
+      if (_cargando) {
+        return const [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        ];
+      }
+      if (_error != null)
+        return [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child:
+                AgroError(message: Api.errorMsg(_error!), onRetry: _reiniciar),
+          )
+        ];
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: AgroEmpty(
+            icon: Icons.storefront_rounded,
             message: _query.isEmpty && _categoria == null && !_cerca
-                ? 'Aún no hay ofertas publicadas'
-                : 'No encontramos ofertas con esos filtros',
+                ? 'Pronto encontrarás aquí productos frescos de fincas cercanas.'
+                : 'No encontramos productos con esos filtros. Prueba otra búsqueda.',
           ),
-        ]),
-      );
+        )
+      ];
     }
-    return RefreshIndicator(
-      onRefresh: _reiniciar,
-      child: ListView.builder(
-        controller: _scroll,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-        itemCount: _items.length + (_hayMas ? 1 : 0),
-        itemBuilder: (c, i) {
-          if (i >= _items.length) {
-            return Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: _error != null
-                    ? TextButton(onPressed: _cargar, child: const Text('Reintentar'))
-                    : const CircularProgressIndicator(),
+    final columns = MediaQuery.sizeOf(context).width >= 680 ? 3 : 2;
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        sliver: SliverLayoutBuilder(
+          builder: (context, constraints) {
+            final itemWidth =
+                (constraints.crossAxisExtent - (columns - 1) * 12) / columns;
+            return SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                mainAxisExtent: itemWidth * 1.55,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index >= _items.length) {
+                    return Center(
+                      child: _error != null
+                          ? TextButton(
+                              onPressed: _cargar,
+                              child: const Text('Reintentar'),
+                            )
+                          : const CircularProgressIndicator(),
+                    );
+                  }
+                  return ListadoCard(l: _items[index]);
+                },
+                childCount: _items.length + (_hayMas ? 1 : 0),
               ),
             );
-          }
-          return Padding(padding: const EdgeInsets.only(bottom: 8), child: ListadoCard(l: _items[i]));
-        },
+          },
+        ),
+      ),
+    ];
+  }
+}
+
+class _MarketplaceHero extends StatelessWidget {
+  final VoidCallback? onPublish;
+  const _MarketplaceHero({this.onPublish});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 162),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AgroColors.forest, AgroColors.heroMid, AgroColors.heroEnd],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AgroColors.forest.withValues(alpha: 0.18),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -24,
+            top: -40,
+            child: Container(
+              width: 170,
+              height: 170,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AgroColors.brightGreen.withValues(alpha: 0.20),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 4,
+            bottom: -55,
+            child: Icon(Icons.eco_rounded,
+                size: 145, color: Colors.white.withValues(alpha: 0.09)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 17, 18, 15),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.wb_sunny_rounded,
+                              color: AgroColors.lime, size: 14),
+                          const SizedBox(width: 5),
+                          Text(
+                            onPublish == null
+                                ? 'MERCADO AGROSMART'
+                                : 'TU COSECHA TIENE VALOR',
+                            style: const TextStyle(
+                              color: AgroColors.mintPale,
+                              fontSize: 9,
+                              letterSpacing: 1,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 9),
+                      Text(
+                        onPublish == null
+                            ? 'Lo mejor del campo, cerca de ti'
+                            : 'Lleva tus productos más lejos',
+                        maxLines: 2,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 21,
+                          height: 1.12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        onPublish == null
+                            ? 'Compra directo a productores locales'
+                            : 'Publica tu oferta y conecta con compradores',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AgroColors.mintPale,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (onPublish != null) ...[
+                        const SizedBox(height: 10),
+                        FilledButton.icon(
+                          onPressed: onPublish,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AgroColors.lime,
+                            foregroundColor: AgroColors.forest,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 34),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            textStyle: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w800),
+                          ),
+                          icon:
+                              const Icon(Icons.add_a_photo_outlined, size: 15),
+                          label: const Text('Publicar producto'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  width: 66,
+                  height: 66,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.13),
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                  ),
+                  child: const Icon(Icons.shopping_basket_rounded,
+                      size: 33, color: AgroColors.lime),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -216,48 +526,197 @@ class ListadoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fotos = (l['fotos'] as List?) ?? [];
+    final foto = fotos.isEmpty
+        ? ''
+        : s(fotos.first is Map ? (fotos.first as Map)['url'] : fotos.first);
     final cat = s(l['categoria']);
     final distancia = l['distanciaKm'] ?? l['distancia'];
-    return AgroCard(
-      padding: EdgeInsets.zero,
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetalleListadoPage(id: (l['idlistado'] as num).toInt()))),
-      child: Row(children: [
-        SizedBox(
-          width: 104,
-          height: 116,
-          child: fotos.isNotEmpty
-              ? Image(
-                  image: CachedNetworkImageProvider(s(fotos.first is Map ? (fotos.first as Map)['url'] : fotos.first)),
-                  fit: BoxFit.cover,
-                  loadingBuilder: (_, child, p) => p == null ? child : const ColoredBox(color: AgroColors.surfaceGreen),
-                  errorBuilder: (_, __, ___) => const ColoredBox(
-                    color: AgroColors.surfaceGreen,
-                    child: Icon(Icons.image_not_supported_outlined, color: AgroColors.textMuted),
+    return Material(
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: AgroColors.slateBorder),
+      ),
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) =>
+                DetalleListadoPage(id: (l['idlistado'] as num).toInt()))),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 11,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (foto.isNotEmpty)
+                    CachedNetworkImage(
+                      imageUrl: foto,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => const _ProductPlaceholder(),
+                      errorWidget: (_, __, ___) => const _ProductPlaceholder(),
+                    )
+                  else
+                    const _ProductPlaceholder(),
+                  Positioned(
+                    left: 9,
+                    top: 9,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.eco_rounded,
+                              size: 12, color: AgroColors.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            cat.isEmpty ? 'Del campo' : cat,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: AgroColors.forest,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                )
-              : const ColoredBox(color: AgroColors.surfaceGreen, child: Icon(Icons.eco, color: AgroColors.primary, size: 32)),
+                  if (l['destacado'] == true)
+                    Positioned(
+                      right: 9,
+                      top: 9,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                            color: AgroColors.amber, shape: BoxShape.circle),
+                        child: const Icon(Icons.star_rounded,
+                            size: 14, color: Colors.white),
+                      ),
+                    ),
+                  Positioned(
+                    right: 9,
+                    bottom: 9,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AgroColors.forest.withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.inventory_2_outlined,
+                              color: Colors.white, size: 11),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${cant(l['volumendisponible'])} ${s(l['unidad'])}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 10,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(11, 9, 11, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      s(l['titulo']),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AgroColors.forestDeep,
+                        fontSize: 13,
+                        height: 1.15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined,
+                            size: 12, color: AgroColors.primaryLight),
+                        const SizedBox(width: 2),
+                        Expanded(
+                          child: Text(
+                            juntar([
+                              s(l['finca']),
+                              s(l['ubicacion']),
+                              if (distancia != null) '${cant(distancia)} km',
+                            ]),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: AgroColors.textMuted,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      money(l['preciounitario']),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AgroColors.primary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'por ${s(l['unidad']).isEmpty ? 'unidad' : s(l['unidad'])}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: AgroColors.textMuted,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(child: Text(s(l['titulo']), maxLines: 1, overflow: TextOverflow.ellipsis, style: AgroText.title)),
-                if (l['destacado'] == true) const Icon(Icons.star, size: 18, color: AgroColors.amber, semanticLabel: 'Destacada'),
-              ]),
-              const SizedBox(height: 2),
-              Text(juntar([s(l['finca']), s(l['ubicacion']), if (distancia != null) '${cant(distancia)} km']),
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AgroColors.textMuted, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              if (cat.isNotEmpty) CropBadge(cat, showIcon: false),
-              const SizedBox(height: 6),
-              Text('${money(l['preciounitario'])} / ${s(l['unidad']).isEmpty ? 'unidad' : s(l['unidad'])}', style: AgroText.amount),
-              Text('Disponible: ${cant(l['volumendisponible'])} ${s(l['unidad'])}',
-                  style: const TextStyle(fontSize: 12, color: AgroColors.textMuted, fontWeight: FontWeight.w600)),
-            ]),
-          ),
-        ),
-      ]),
+      ),
+    );
+  }
+}
+
+class _ProductPlaceholder extends StatelessWidget {
+  const _ProductPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: AgroColors.surfaceLime,
+      child: Center(
+        child: Icon(Icons.agriculture_rounded,
+            color: AgroColors.primaryLight, size: 42),
+      ),
     );
   }
 }

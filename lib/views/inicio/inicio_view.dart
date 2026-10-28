@@ -91,6 +91,9 @@ class _InicioPageState extends State<InicioPage> {
               label: 'Cultivos activos',
               value: cant(k['cultivos']),
               icon: Icons.grass,
+              accent: const Color(0xFF3A9A42),
+              gradient: const LinearGradient(
+                  colors: [AgroColors.surfaceLime, Color(0xFFF9FCEB)]),
               onTap: () => HomeShell.irA(c, ShellTab.cultivos, sub: 1),
             ),
           if (k['miembros'] != null)
@@ -98,86 +101,200 @@ class _InicioPageState extends State<InicioPage> {
               label: 'Personas en el equipo',
               value: cant(k['miembros']),
               icon: Icons.groups_outlined,
+              accent: const Color(0xFF1687A7),
+              gradient: const LinearGradient(
+                  colors: [AgroColors.surfaceBlue, Color(0xFFF5FCFF)]),
             ),
           if (k['ventas_marketplace'] != null)
             _metricCard(
               label: 'Ventas cerradas',
               value: money(k['ventas_marketplace']),
               icon: Icons.storefront_outlined,
+              accent: const Color(0xFFB36B0A),
+              gradient: const LinearGradient(
+                  colors: [AgroColors.surfaceAmber, Color(0xFFFFFBF0)]),
               onTap: () => HomeShell.irA(c, ShellTab.mercado, sub: 2),
             ),
           _metricCard(
             label: 'Tareas completadas',
             value: cant(completadas),
             icon: Icons.check_circle_outline,
+            accent: const Color(0xFF168653),
+            gradient: const LinearGradient(
+                colors: [Color(0xFFDDF7E7), Color(0xFFF3FCF5)]),
             onTap: tareas,
           ),
         ];
         return RefreshIndicator(
           onRefresh: _recargar,
-          child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+          child: Container(
+            color: AgroColors.page,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               children: [
-                Text(
-                  esAdmin ? 'PANEL DE ADMINISTRACIÃ“N' : 'RESUMEN DE ACTIVIDAD',
-                  style: const TextStyle(
-                    color: AgroColors.primaryLight,
-                    fontSize: 11,
-                    letterSpacing: 1.1,
-                    fontWeight: FontWeight.w800,
+                AgroHeroCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      Positioned(
+                        right: -38,
+                        top: -50,
+                        child: Container(
+                          width: 150,
+                          height: 150,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color:
+                                AgroColors.brightGreen.withValues(alpha: 0.18),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 12,
+                        bottom: -66,
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AgroColors.lime.withValues(alpha: 0.12),
+                          ),
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.eco_rounded,
+                                  color: AgroColors.lime, size: 16),
+                              const SizedBox(width: 7),
+                              Text(
+                                esAdmin
+                                    ? 'PANEL DE ADMINISTRACIÓN'
+                                    : 'RESUMEN DE ACTIVIDAD',
+                                style: const TextStyle(
+                                  color: AgroColors.mintPale,
+                                  fontSize: 10,
+                                  letterSpacing: 1,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 9, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.18)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.wb_sunny_rounded,
+                                        size: 13, color: AgroColors.lime),
+                                    SizedBox(width: 4),
+                                    Text('HOY',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 15),
+                          Text(
+                            'Hola, ${session.nombre.split(' ').first}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 25,
+                              height: 1.15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(children: [
+                            const Icon(Icons.location_on_rounded,
+                                size: 16, color: AgroColors.lime),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                juntar([nombreFinca, ubic]),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ]),
+                          const SizedBox(height: 17),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.spa_rounded,
+                                    size: 15, color: AgroColors.lime),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${cant(pendientes)} tareas pendientes',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Hola, ${session.nombre.split(' ').first}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AgroColors.textDark,
-                    fontSize: 26,
-                    height: 1.15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Row(children: [
-                  const Icon(Icons.location_on_outlined,
-                      size: 17, color: AgroColors.textMuted),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      juntar([nombreFinca, ubic]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: AgroColors.textMuted,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 AgroCard(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(15),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFFFE48A), Color(0xFFF3B83F)],
+                  ),
                   onTap: tareas,
                   child: Row(children: [
                     Container(
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                          color: AgroColors.surfaceGreen,
+                          color: Colors.white.withValues(alpha: 0.56),
                           borderRadius: BorderRadius.circular(14)),
                       child: const Icon(Icons.checklist_rounded,
-                          color: AgroColors.primary, size: 23),
+                          color: AgroColors.forest, size: 23),
                     ),
-                    const SizedBox(width: 13),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text('Tareas por atender',
                                 style: TextStyle(
-                                    color: AgroColors.textMuted,
+                                    color: AgroColors.forest,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700)),
                             const SizedBox(height: 3),
@@ -186,15 +303,15 @@ class _InicioPageState extends State<InicioPage> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                  color: AgroColors.textDark,
-                                  fontSize: 15,
+                                  color: AgroColors.forestDeep,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w800),
                             ),
                           ]),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right,
-                        color: AgroColors.textMuted),
+                    const Icon(Icons.arrow_forward_rounded,
+                        color: AgroColors.forest),
                   ]),
                 ),
                 if (stockBajo > 0) ...[
@@ -206,7 +323,7 @@ class _InicioPageState extends State<InicioPage> {
                     onAction: () => HomeShell.irA(c, ShellTab.tareas, sub: 2),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
                 const AgroSectionHeader('Resumen de la finca'),
                 const SizedBox(height: 10),
                 LayoutBuilder(builder: (_, box) {
@@ -220,7 +337,9 @@ class _InicioPageState extends State<InicioPage> {
                     ],
                   );
                 }),
-              ]),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -231,10 +350,13 @@ Widget _metricCard({
   required String label,
   required String value,
   required IconData icon,
+  required Color accent,
+  required Gradient gradient,
   VoidCallback? onTap,
 }) {
   return AgroCard(
     padding: const EdgeInsets.all(14),
+    gradient: gradient,
     onTap: onTap,
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
@@ -242,9 +364,9 @@ Widget _metricCard({
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-              color: AgroColors.surfaceGreen,
+              color: accent.withValues(alpha: 0.13),
               borderRadius: BorderRadius.circular(12)),
-          child: Icon(icon, size: 20, color: AgroColors.primary),
+          child: Icon(icon, size: 20, color: accent),
         ),
         const Spacer(),
         if (onTap != null)
@@ -257,7 +379,7 @@ Widget _metricCard({
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
-            color: AgroColors.textDark,
+            color: AgroColors.forestDeep,
             fontSize: 21,
             height: 1.05,
             fontWeight: FontWeight.w800),
@@ -268,7 +390,7 @@ Widget _metricCard({
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
-            color: AgroColors.textMuted,
+            color: AgroColors.textDark,
             fontSize: 12,
             height: 1.25,
             fontWeight: FontWeight.w600),

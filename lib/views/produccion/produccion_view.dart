@@ -58,11 +58,11 @@ class ProduccionPage extends StatelessWidget {
               '/lotes/foto',
               data: {'imagen': foto},
             );
-            final url = response.data is Map
-                ? s(response.data['imagenurl'])
-                : '';
+            final url =
+                response.data is Map ? s(response.data['imagenurl']) : '';
             if (url.isEmpty) {
-              throw StateError('El servidor no devolvió la dirección de la foto');
+              throw StateError(
+                  'El servidor no devolvió la dirección de la foto');
             }
             payload['imagenurl'] = url;
           }
@@ -104,6 +104,11 @@ class ProduccionPage extends StatelessWidget {
         canEdit: esAdmin,
         empty: 'Aún no hay cultivos registrados',
         header: _demoHeader,
+        gradientBuilder: (_) => const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFE7F8D8), Color(0xFFF9FCEC), Colors.white],
+        ),
         fields: () async => [
           FieldDef(
             'tipo',
@@ -219,7 +224,11 @@ class ProduccionPage extends StatelessWidget {
               MapEntry('Racimo', 'Racimo'),
             ],
           ),
-          const FieldDef('calidad', 'Calidad'),
+          const FieldDef('calidad', 'Calidad', type: FT.selectOther, options: [
+            MapEntry('Excelente', 'Excelente'),
+            MapEntry('Buena', 'Buena'),
+            MapEntry('Regular', 'Regular'),
+          ]),
           const FieldDef('observaciones', 'Observaciones', type: FT.multiline),
         ],
         title: (c) => [
@@ -238,7 +247,9 @@ class ProduccionPage extends StatelessWidget {
           ]);
         },
       ),
-    }, tabIcons: const {'Guía': Icons.help_outline});
+    }, tabIcons: const {
+      'Guía': Icons.help_outline
+    });
   }
 }
 

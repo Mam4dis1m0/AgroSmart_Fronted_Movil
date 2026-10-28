@@ -48,23 +48,46 @@ class _CarritoTabState extends State<CarritoTab> {
         loader: _load,
         empty: 'Tu carrito está vacío',
         emptyIcon: Icons.shopping_cart_outlined,
-        itemBuilder: (c, it, reload) => AgroListCard(
-          leading: const AgroIconTile(icon: Icons.shopping_cart),
-          title: Text(s(it['titulo']), style: AgroText.title),
-          subtitle: Text('${cant(it['cantidad'])} ${s(it['unidad'])} · ${money(it['subtotal'])}', style: AgroText.muted),
-          badges: it['disponible'] == false ? const StatusBadge('agotado') : null,
-          trailing: IconButton(
-            tooltip: 'Quitar del carrito',
-            icon: const Icon(Icons.delete_outline, color: AgroColors.danger),
-            onPressed: () async {
-              if (!await confirmar(c, '«${s(it['titulo'])}» saldrá de tu carrito.', titulo: '¿Quitar producto?', ok: 'Quitar', destructivo: true)) {
-                return;
-              }
-              if (!c.mounted) return;
-              if (await run(c, () => marketplaceService.quitarDelCarrito(it['idlistado']))) reload();
-            },
-          ),
-        ),
+        itemBuilder: (c, it, reload) {
+          final fotos = (it['fotos'] as List?) ?? const [];
+          final foto = fotos.isEmpty
+              ? ''
+              : s(fotos.first is Map ? (fotos.first as Map)['url'] : fotos.first);
+          return AgroListCard(
+            leading: AgroProductThumb(url: foto),
+            title: Text(s(it['titulo']), style: AgroText.title),
+            subtitle: Text(
+              '${cant(it['cantidad'])} ${s(it['unidad'])} · ${money(it['subtotal'])}',
+              style: AgroText.muted,
+            ),
+            badges: it['disponible'] == false
+                ? const StatusBadge('agotado')
+                : null,
+            trailing: IconButton(
+              tooltip: 'Quitar del carrito',
+              icon: const Icon(Icons.delete_outline,
+                  color: AgroColors.danger),
+              onPressed: () async {
+                if (!await confirmar(
+                  c,
+                  '«${s(it['titulo'])}» saldrá de tu carrito.',
+                  titulo: '¿Quitar producto?',
+                  ok: 'Quitar',
+                  destructivo: true,
+                )) {
+                  return;
+                }
+                if (!c.mounted) return;
+                if (await run(
+                    c,
+                    () => marketplaceService
+                        .quitarDelCarrito(it['idlistado']))) {
+                  reload();
+                }
+              },
+            ),
+          );
+        },
       ),
       floatingActionButton: _items.isEmpty
           ? null

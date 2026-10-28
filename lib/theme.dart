@@ -27,6 +27,12 @@ class AgroColors {
 
   /// Fondo general de la app (verde pastel).
   static const surfaceGreen = Color(0xFFDDEAE0);
+  static const surfaceLime = Color(0xFFF0F9DF);
+  static const surfaceBlue = Color(0xFFEAF7FC);
+  static const surfaceAmber = Color(0xFFFFF4D6);
+  static const page = Color(0xFFF6F9F3);
+  static const brightGreen = Color(0xFF42C66B);
+  static const lime = Color(0xFFD4F16A);
 
   /// Barra de navegación inferior.
   static const navBg = Color(0xFF0C1E14);
@@ -45,9 +51,9 @@ class AgroColors {
   static const handle = Color(0xFFCBD5E1);
 
   /// Verdes del hero y del header.
-  static const heroMid = Color(0xFF103221);
-  static const heroEnd = Color(0xFF15432B);
-  static const heroBorder = Color(0xFF214D36);
+  static const heroMid = Color(0xFF145A34);
+  static const heroEnd = Color(0xFF1F7943);
+  static const heroBorder = Color(0xFF378754);
   static const forestTile = Color(0xFF143B26);
   static const forestTileBorder = Color(0xFF23583C);
   static const headerBorder = Color(0xFF163D27);
