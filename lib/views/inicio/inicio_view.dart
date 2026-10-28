@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/providers/session_provider.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
@@ -6,6 +6,7 @@ import 'package:agrosmart_proto/theme.dart';
 import 'package:agrosmart_proto/ui/design.dart';
 import 'package:agrosmart_proto/ui/shell.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
+import 'package:agrosmart_proto/views/inicio/inicio_empleado.dart';
 
 /// Inicio / Dashboard de la finca activa.
 class InicioPage extends StatefulWidget {
@@ -60,6 +61,8 @@ class _InicioPageState extends State<InicioPage> {
 
   @override
   Widget build(BuildContext context) {
+    // El empleado entra directo a Â«Mis tareas de hoyÂ» (sin tarjetas de KPI).
+    if (session.esEmpleado) return const EmpleadoInicioPage();
     return FutureBuilder<Map<String, dynamic>>(
       future: _f,
       builder: (c, snap) {
@@ -142,8 +145,8 @@ class _InicioPageState extends State<InicioPage> {
                           height: 150,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AgroColors.brightGreen
-                                .withValues(alpha: 0.18),
+                            color:
+                                AgroColors.brightGreen.withValues(alpha: 0.18),
                           ),
                         ),
                       ),
@@ -296,7 +299,7 @@ class _InicioPageState extends State<InicioPage> {
                                     fontWeight: FontWeight.w700)),
                             const SizedBox(height: 3),
                             Text(
-                              '${cant(pendientes)} pendientes · ${cant(progreso)} en progreso',
+                              '${cant(pendientes)} pendientes Â· ${cant(progreso)} en progreso',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -317,7 +320,7 @@ class _InicioPageState extends State<InicioPage> {
                     message:
                         'Tienes ${stockBajo == 1 ? 'un insumo' : '${cant(stockBajo)} insumos'} con stock bajo',
                     action: 'Revisar',
-                    onAction: () => HomeShell.irA(c, ShellTab.tareas, sub: 1),
+                    onAction: () => HomeShell.irA(c, ShellTab.tareas, sub: 2),
                   ),
                 ],
                 const SizedBox(height: 22),

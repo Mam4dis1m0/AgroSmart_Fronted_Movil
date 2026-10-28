@@ -6,6 +6,7 @@ import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/services/demo/demo_data.dart';
 import 'package:agrosmart_proto/ui/design.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
+import 'package:agrosmart_proto/views/operacion/plan_labores_view.dart';
 
 /// Las relaciones pueden venir como objeto anidado; el formulario necesita el id.
 Map<String, dynamic> aplanarIds(Map<String, dynamic> m, List<String> keys) {
@@ -146,6 +147,25 @@ class ProduccionPage extends StatelessWidget {
           FieldDef('idlote', 'Lote',
               type: FT.select, options: await produccionService.lotesOpc()),
           const FieldDef('fechasiembra', 'Fecha de siembra', type: FT.date),
+          const FieldDef('fechacosechaestimada', 'Cosecha estimada (opcional)',
+              type: FT.date,
+              after: 'fechasiembra',
+              helper:
+                  'Con esta fecha el sistema programa las labores de cosecha y postcosecha.'),
+          FieldDef('categoria', 'Categoría de manejo (opcional)',
+              type: FT.select,
+              options: await operacionService.categoriasOpc(),
+              helper:
+                  'Define qué labores se sugieren. Si lo dejas vacío se deduce del tipo de cultivo.'),
+        ],
+        extra: (c) => [
+          if (esAdmin)
+            RowAction('Plan de labores', (ctx, it, reload) async {
+              await Navigator.of(ctx).push(MaterialPageRoute(
+                  builder: (_) => PlanLaboresPage(
+                      idcultivo: (c['idcultivo'] as num).toInt(),
+                      nombre: s(c['tipo']))));
+            }, icon: Icons.event_note_outlined),
         ],
         normalize: (c) => aplanarIds(c, ['idlote']),
         title: (c) =>
