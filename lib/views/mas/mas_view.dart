@@ -158,7 +158,20 @@ Future<void> editarFinca(BuildContext c) async {
       const [
         FieldDef('nombre', 'Nombre de la finca', required: true, minLength: 2),
         FieldDef('ubicacion', 'Ubicación (municipio, departamento)'),
-        FieldDef('tipoproduccion', 'Tipo de producción (café, palma, mixta…)'),
+        FieldDef(
+          'tipoproduccion',
+          'Tipo de producción',
+          type: FT.selectOther,
+          options: [
+            MapEntry('Café', 'Café'),
+            MapEntry('Palma', 'Palma de aceite'),
+            MapEntry('Cacao', 'Cacao'),
+            MapEntry('Ganadería', 'Ganadería'),
+            MapEntry('Frutales', 'Frutales'),
+            MapEntry('Hortalizas', 'Hortalizas'),
+            MapEntry('Agricultura mixta', 'Agricultura mixta'),
+          ],
+        ),
       ],
       initial: actual.toMap(),
       edit: true);

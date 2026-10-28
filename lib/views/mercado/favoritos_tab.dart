@@ -16,24 +16,29 @@ class FavoritosTab extends StatelessWidget {
       emptyIcon: Icons.favorite_border,
       itemBuilder: (c, w, reload) {
         final agotado = w['disponible'] == false;
+        final fotos = (w['fotos'] as List?) ?? const [];
+        final foto = fotos.isEmpty
+            ? ''
+            : s(fotos.first is Map ? (fotos.first as Map)['url'] : fotos.first);
         return AgroListCard(
-          leading: AgroIconTile(
-            icon: Icons.favorite,
-            color: agotado ? AgroColors.textMuted : AgroColors.danger,
-            bg: agotado ? AgroColors.neutralBg : AgroColors.dangerBg,
-          ),
+          leading: AgroProductThumb(url: foto),
           title: Text(s(w['titulo']), style: AgroText.title),
-          subtitle: Text('${money(w['preciounitario'])} / ${s(w['unidad'])}', style: AgroText.muted),
+          subtitle: Text('${money(w['preciounitario'])} / ${s(w['unidad'])}',
+              style: AgroText.muted),
           badges: agotado ? const StatusBadge('agotado') : null,
           onTap: () async {
-            await Navigator.of(c).push(MaterialPageRoute(builder: (_) => DetalleListadoPage(id: (w['idlistado'] as num).toInt())));
+            await Navigator.of(c).push(MaterialPageRoute(
+                builder: (_) =>
+                    DetalleListadoPage(id: (w['idlistado'] as num).toInt())));
             reload();
           },
           trailing: IconButton(
             tooltip: 'Quitar de favoritos',
             icon: const Icon(Icons.delete_outline, color: AgroColors.danger),
             onPressed: () async {
-              if (await run(c, () => marketplaceService.quitarFavorito(w['idlistado']), ok: 'Quitado de favoritos')) reload();
+              if (await run(
+                  c, () => marketplaceService.quitarFavorito(w['idlistado']),
+                  ok: 'Quitado de favoritos')) reload();
             },
           ),
         );

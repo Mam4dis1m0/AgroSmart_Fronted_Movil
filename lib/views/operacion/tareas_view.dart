@@ -11,7 +11,24 @@ import 'tarea_detalle_view.dart';
 const _etiquetaEstado = {'Pendiente': 'Pendientes', 'Asignado': 'Asignadas', 'En progreso': 'En progreso', 'Completado': 'Completadas'};
 
 Future<List<FieldDef>> camposTarea() async => [
-      const FieldDef('tipoactividad', 'Actividad (riego, poda, fumigación…)', required: true, minLength: 3),
+      const FieldDef(
+        'tipoactividad',
+        'Actividad',
+        type: FT.selectOther,
+        required: true,
+        minLength: 3,
+        options: [
+          MapEntry('Riego', 'Riego'),
+          MapEntry('Siembra', 'Siembra'),
+          MapEntry('Fertilización', 'Fertilización'),
+          MapEntry('Control de plagas', 'Control de plagas'),
+          MapEntry('Poda', 'Poda'),
+          MapEntry('Cosecha', 'Cosecha'),
+          MapEntry('Deshierbe', 'Deshierbe'),
+          MapEntry('Preparación del terreno', 'Preparación del terreno'),
+          MapEntry('Mantenimiento', 'Mantenimiento'),
+        ],
+      ),
       const FieldDef('fechaprogramada', 'Fecha programada', type: FT.date),
       FieldDef('idcultivo', 'Cultivo', type: FT.select, options: await operacionService.cultivosOpc()),
       const FieldDef('costototal', 'Costo estimado (COP)', type: FT.number, min: 0),
@@ -156,6 +173,15 @@ class _TareasPageState extends State<TareasPage> {
         final done = t.completada;
         final enProgreso = t.estado.toLowerCase().startsWith('en progreso');
         return AgroListCard(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: done
+                ? const [Color(0xFFDDF7E7), Color(0xFFF7FCF8), Colors.white]
+                : enProgreso
+                    ? const [AgroColors.surfaceBlue, Color(0xFFF8FCFE)]
+                    : const [AgroColors.surfaceAmber, Color(0xFFFFFCF4)],
+          ),
           onTap: () async {
             await Navigator.of(c).push(MaterialPageRoute(builder: (_) => TareaDetallePage(idtarea: t.idtarea)));
             reload();

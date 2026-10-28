@@ -343,8 +343,7 @@ class _FormSheetState extends State<_FormSheet> {
           OutlinedButton.icon(
             onPressed: () async {
               try {
-                final image =
-                    await elegirImagen(context, allowWebCamera: true);
+                final image = await elegirImagen(context, allowWebCamera: true);
                 if (image == null || !mounted) return;
                 if (image.bytes.lengthInBytes > 5 * 1024 * 1024) {
                   snack(context, 'La imagen supera el tamaño máximo de 5 MB');
@@ -387,8 +386,8 @@ class _FormSheetState extends State<_FormSheet> {
           TextFormField(
             controller: _ctrl[f.key],
             textInputAction: last ? TextInputAction.done : TextInputAction.next,
-            decoration: const InputDecoration(
-                labelText: 'Escribe el nombre del cultivo'),
+            decoration: InputDecoration(
+                labelText: 'Escribe ${f.label.toLowerCase()}'),
             validator: (value) {
               final name = (value ?? '').trim();
               if (f.required && name.isEmpty) return 'Requerido';
@@ -648,7 +647,7 @@ class AsyncListState extends State<AsyncList>
         onRefresh: reload,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
           children: [
             if (widget.header != null) ...[
               widget.header!,
@@ -773,6 +772,7 @@ class CrudList extends StatefulWidget {
   final String? listPath;
   final String idKey;
   final String singular;
+  final String? addLabel;
 
   /// Género gramatical para los mensajes ("Nuevo lote" / "Nueva cosecha").
   final bool femenino;
@@ -781,6 +781,7 @@ class CrudList extends StatefulWidget {
   final String Function(Map<String, dynamic>) subtitle;
   final IconData icon;
   final bool canEdit;
+  final Gradient? Function(Map<String, dynamic>)? gradientBuilder;
   final Map<String, dynamic> Function(Map<String, dynamic>)? normalize;
   final Color? Function(Map<String, dynamic>)? tint;
   final String Function(Map<String, dynamic>)? trailingText;
@@ -800,12 +801,14 @@ class CrudList extends StatefulWidget {
     this.listPath,
     required this.idKey,
     required this.singular,
+    this.addLabel,
     this.femenino = false,
     required this.fields,
     required this.title,
     required this.subtitle,
     this.icon = Icons.circle,
     this.canEdit = false,
+    this.gradientBuilder,
     this.normalize,
     this.tint,
     this.trailingText,
@@ -841,9 +844,8 @@ class _CrudListState extends State<CrudList> {
     );
     if (data == null || !mounted) return;
     final ok = await run(context, () async {
-      final payload = widget.prepareData == null
-          ? data
-          : await widget.prepareData!(data);
+      final payload =
+          widget.prepareData == null ? data : await widget.prepareData!(data);
       return Api.i.dio.post(widget.path, data: payload);
     }, ok: widget.femenino ? 'Creada' : 'Creado');
     if (ok) _reload();
@@ -857,12 +859,11 @@ class _CrudListState extends State<CrudList> {
         initial: init, edit: true);
     if (data == null || !mounted) return;
     if (await run(context, () async {
-      final payload = widget.prepareData == null
-          ? data
-          : await widget.prepareData!(data);
-      return Api.i.dio.put('${widget.path}/${item[widget.idKey]}', data: payload);
-    },
-        ok: 'Cambios guardados')) {
+      final payload =
+          widget.prepareData == null ? data : await widget.prepareData!(data);
+      return Api.i.dio
+          .put('${widget.path}/${item[widget.idKey]}', data: payload);
+    }, ok: 'Cambios guardados')) {
       _reload();
     }
   }
@@ -900,6 +901,7 @@ class _CrudListState extends State<CrudList> {
           final menu = widget.canEdit || extras.isNotEmpty;
           return AgroListCard(
             tint: widget.tint?.call(it),
+            gradient: widget.gradientBuilder?.call(it),
             onTap: widget.onTap == null
                 ? null
                 : () => widget.onTap!(c, it, reload),
@@ -949,7 +951,7 @@ class _CrudListState extends State<CrudList> {
               heroTag: null,
               onPressed: _create,
               icon: const Icon(Icons.add),
-              label: Text('$_nuevo ${widget.singular}'),
+              label: Text(widget.addLabel ?? '$_nuevo ${widget.singular}'),
             )
           : null,
     );
@@ -1001,22 +1003,38 @@ class TabsPage extends StatelessWidget {
       child: Column(children: [
         Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: AgroColors.slateBorder)),
-          ),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                for (final t in tabs.keys)
-                  Tab(
-                    icon: tabIcons[t] == null ? null : Icon(tabIcons[t], size: 18),
-                    text: t,
-                  )
-              ],
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AgroColors.surfaceLime, AgroColors.page],
             ),
+            border: Border(bottom: BorderSide(color: AgroColors.mintBorder)),
+          ),
+          child: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            indicatorSize: TabBarIndicatorSize.tab,
+            indicatorPadding:
+                const EdgeInsets.symmetric(vertical: 5, horizontal: 3),
+            indicator: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AgroColors.primaryLight, AgroColors.brightGreen],
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            labelColor: Colors.white,
+            unselectedLabelColor: AgroColors.textMuted,
+            dividerColor: Colors.transparent,
+            tabs: [
+              for (final t in tabs.keys)
+                Tab(
+                  height: 44,
+                  icon:
+                      tabIcons[t] == null ? null : Icon(tabIcons[t], size: 18),
+                  text: t,
+                )
+            ],
           ),
         ),
         Expanded(child: TabBarView(children: tabs.values.toList())),

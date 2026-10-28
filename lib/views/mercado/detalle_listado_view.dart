@@ -107,6 +107,7 @@ class _DetalleListadoPageState extends State<DetalleListadoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AgroColors.page,
       appBar: AppBar(title: const Text('Oferta'), actions: [
         if (session.esComprador && _favorito != null)
           IconButton(
@@ -126,83 +127,216 @@ class _DetalleListadoPageState extends State<DetalleListadoPage> {
             );
           }
           final l = snap.data!;
-          final fotos = [for (final f in (l['fotos'] as List?) ?? const []) s(f)];
+          final fotos = [
+            for (final foto in (l['fotos'] as List?) ?? const [])
+              s(foto is Map ? foto['url'] : foto)
+          ].where((url) => url.isNotEmpty).toList();
           final cat = s(l['categoria']);
           final cantidad = _cantidad(l);
           final total = (cantidad ?? 0) * n(l['preciounitario']);
           final excede = (num.tryParse(_cant.text.replaceAll(',', '.')) ?? 0) > n(l['volumendisponible']);
-          return ListView(padding: const EdgeInsets.all(16), children: [
-            if (fotos.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: SizedBox(
-                  height: 230,
-                  child: PageView(
-                    controller: _fotos,
-                    onPageChanged: (i) => setState(() => _foto = i),
-                    children: [
-                      for (final f in fotos)
-                        Image(
-                          image: CachedNetworkImageProvider(f),
-                          fit: BoxFit.cover,
-                          loadingBuilder: (_, child, p) => p == null ? child : const ColoredBox(color: AgroColors.surfaceGreen, child: Center(child: CircularProgressIndicator())),
-                          errorBuilder: (_, __, ___) => const ColoredBox(
-                            color: AgroColors.surfaceGreen,
-                            child: Center(child: Icon(Icons.image_not_supported_outlined, size: 40, color: AgroColors.textMuted)),
+          return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: SizedBox(
+                height: 250,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (fotos.isNotEmpty)
+                      PageView(
+                        controller: _fotos,
+                        onPageChanged: (i) => setState(() => _foto = i),
+                        children: [
+                          for (final f in fotos)
+                            Image(
+                              image: CachedNetworkImageProvider(f),
+                              fit: BoxFit.cover,
+                              loadingBuilder: (_, child, p) => p == null
+                                  ? child
+                                  : const _ProductPhotoPlaceholder(),
+                              errorBuilder: (_, __, ___) =>
+                                  const _ProductPhotoPlaceholder(),
+                            ),
+                        ],
+                      )
+                    else
+                      const _ProductPhotoPlaceholder(),
+                    Positioned(
+                      left: 13,
+                      top: 13,
+                      child: Wrap(
+                        spacing: 7,
+                        children: [
+                          if (cat.isNotEmpty) CropBadge(cat),
+                          if (l['destacado'] == true)
+                            const StatusBadge('destacado'),
+                        ],
+                      ),
+                    ),
+                    if (fotos.length > 1)
+                      Positioned(
+                        right: 13,
+                        bottom: 13,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AgroColors.forest.withValues(alpha: 0.82),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${_foto + 1} / ${fotos.length}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700),
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
-              if (fotos.length > 1)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    for (var i = 0; i < fotos.length; i++)
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: i == _foto ? 18 : 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: i == _foto ? AgroColors.primary : AgroColors.handle,
-                          borderRadius: BorderRadius.circular(4),
+            ),
+            if (fotos.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 4),
+                child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var i = 0; i < fotos.length; i++)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: i == _foto ? 18 : 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: i == _foto
+                                ? AgroColors.primary
+                                : AgroColors.handle,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
-                      ),
-                  ]),
-                ),
-              const SizedBox(height: 14),
-            ],
-            Wrap(spacing: 8, runSpacing: 6, children: [
-              if (cat.isNotEmpty) CropBadge(cat),
-              if (l['destacado'] == true) const StatusBadge('destacado'),
-            ]),
+                    ]),
+              ),
+            const SizedBox(height: 16),
+            Text(s(l['titulo']),
+                style: const TextStyle(
+                    fontSize: 24,
+                    height: 1.15,
+                    fontWeight: FontWeight.w800,
+                    color: AgroColors.forestDeep)),
             const SizedBox(height: 8),
-            Text(s(l['titulo']), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AgroColors.textDark)),
-            const SizedBox(height: 4),
             Row(children: [
-              const Icon(Icons.store, size: 16, color: AgroColors.textMuted),
-              const SizedBox(width: 4),
-              Expanded(child: Text(juntar([s(l['finca']), s(l['ubicacion'])]), style: AgroText.muted)),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                    color: AgroColors.surfaceLime, shape: BoxShape.circle),
+                child: const Icon(Icons.storefront_rounded,
+                    size: 17, color: AgroColors.primary),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  juntar([s(l['finca']), s(l['ubicacion'])]),
+                  style: AgroText.muted,
+                ),
+              ),
             ]),
-            const SizedBox(height: 10),
-            Text('${money(l['preciounitario'])} / ${s(l['unidad']).isEmpty ? 'unidad' : s(l['unidad'])}',
-                style: const TextStyle(fontSize: 24, color: AgroColors.primary, fontWeight: FontWeight.w800)),
-            Text('Disponible: ${cant_(l)}', style: AgroText.muted),
+            const SizedBox(height: 15),
+            AgroCard(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFE7F8D8), Color(0xFFF9FCEC)],
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('PRECIO POR UNIDAD',
+                            style: TextStyle(
+                                color: AgroColors.primaryLight,
+                                fontSize: 10,
+                                letterSpacing: 0.8,
+                                fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text(
+                          money(l['preciounitario']),
+                          style: const TextStyle(
+                              color: AgroColors.forest,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          'por ${s(l['unidad']).isEmpty ? 'unidad' : s(l['unidad'])}',
+                          style: AgroText.muted,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 11, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.inventory_2_outlined,
+                            size: 18, color: AgroColors.primary),
+                        const SizedBox(height: 3),
+                        Text(cant_(l),
+                            style: const TextStyle(
+                                color: AgroColors.forest,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800)),
+                        const Text('disponibles',
+                            style: TextStyle(
+                                color: AgroColors.textMuted, fontSize: 9)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (s(l['descripcion']).isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(s(l['descripcion']), style: const TextStyle(color: AgroColors.textDark, height: 1.45)),
+              const SizedBox(height: 17),
+              const Text('Sobre este producto',
+                  style: TextStyle(
+                      color: AgroColors.forest,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800)),
+              const SizedBox(height: 5),
+              Text(s(l['descripcion']),
+                  style: const TextStyle(
+                      color: AgroColors.textDark, height: 1.45)),
             ],
             if (session.esComprador) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
               OutlinedButton.icon(
                 onPressed: () => chatearConVendedor(context, widget.id),
                 icon: const Icon(Icons.chat_bubble_outline),
-                label: const Text('Chatear con el vendedor'),
+                label: const Text('Preguntar al productor'),
               ),
-              const Divider(height: 32),
-              const Text('Comprar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AgroColors.textDark)),
+              const SizedBox(height: 18),
+              const Row(children: [
+                Icon(Icons.shopping_bag_outlined,
+                    color: AgroColors.primary, size: 20),
+                SizedBox(width: 7),
+                Text('Llévalo a tu finca',
+                    style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: AgroColors.forest)),
+              ]),
               const SizedBox(height: 10),
               TextField(
                 controller: _cant,
@@ -218,7 +352,8 @@ class _DetalleListadoPageState extends State<DetalleListadoPage> {
               TextField(controller: _notas, maxLines: 2, decoration: const InputDecoration(labelText: 'Notas para el vendedor (opcional)')),
               const SizedBox(height: 12),
               AgroCard(
-                color: AgroColors.surfaceGreen,
+                gradient: const LinearGradient(
+                    colors: [AgroColors.surfaceLime, Colors.white]),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: InfoRow('Total estimado', money(total), strong: true),
               ),
@@ -237,6 +372,27 @@ class _DetalleListadoPageState extends State<DetalleListadoPage> {
             ],
           ]);
         },
+      ),
+    );
+  }
+}
+
+class _ProductPhotoPlaceholder extends StatelessWidget {
+  const _ProductPhotoPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AgroColors.surfaceLime, Color(0xFFD8EEC6)],
+        ),
+      ),
+      child: Center(
+        child: Icon(Icons.agriculture_rounded,
+            size: 64, color: AgroColors.primaryLight),
       ),
     );
   }
