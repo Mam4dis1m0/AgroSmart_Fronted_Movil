@@ -40,7 +40,9 @@ class _PlanLaboresPageState extends State<PlanLaboresPage> {
     setState(() => _enviando = true);
     final ok = await run(context, () async {
       final n = await operacionService.generarPlan(widget.idcultivo, _marcadas.toList());
-      if (mounted) snack(context, n == 0 ? 'No se creó ninguna tarea nueva' : 'Se crearon $n tareas');
+      if (mounted) {
+        snack(context, n < 0 ? 'Sin conexión: las tareas se crearán al volver la red' : (n == 0 ? 'No se creó ninguna tarea nueva' : 'Se crearon $n tareas'));
+      }
     });
     if (!mounted) return;
     setState(() => _enviando = false);

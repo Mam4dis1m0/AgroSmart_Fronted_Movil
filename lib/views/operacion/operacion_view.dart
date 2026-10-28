@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/providers/session_provider.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
+import 'agenda_view.dart';
 import 'insumos_tab.dart';
 import 'plantillas_tab.dart';
 import 'tareas_view.dart';
@@ -12,6 +13,7 @@ class OperacionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TabsPage(initialIndex: initialIndex, tabs: {
+      'Agenda': const AgendaPage(),
       'Tareas': const TareasPage(),
       'Insumos': const InsumosTab(),
       if (esAdmin) 'Plantillas': const PlantillasTab(),

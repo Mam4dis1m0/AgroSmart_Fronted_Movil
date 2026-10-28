@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:agrosmart_proto/models/operacion.dart';
+import 'package:agrosmart_proto/views/operacion/agenda_view.dart';
 
 String _ymd(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -48,5 +49,11 @@ void main() {
     expect(terminada.enCurso, isFalse);
 
     expect(Tarea({'estado': 'Asignado', 'asignacionTareas': [{'idasigtarea': 1}]}).enCurso, isFalse);
+  });
+
+  test('La semana de la agenda empieza el lunes', () {
+    expect(inicioSemana(DateTime(2026, 10, 28, 15, 30)), DateTime(2026, 10, 26)); // miércoles
+    expect(inicioSemana(DateTime(2026, 10, 26)), DateTime(2026, 10, 26)); // lunes
+    expect(inicioSemana(DateTime(2026, 11, 1)), DateTime(2026, 10, 26)); // domingo
   });
 }

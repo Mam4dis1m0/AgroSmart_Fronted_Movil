@@ -200,7 +200,7 @@ class _InicioPageState extends State<InicioPage> {
                     message:
                         'Tienes ${stockBajo == 1 ? 'un insumo' : '${cant(stockBajo)} insumos'} con stock bajo',
                     action: 'Revisar',
-                    onAction: () => HomeShell.irA(c, ShellTab.tareas, sub: 1),
+                    onAction: () => HomeShell.irA(c, ShellTab.tareas, sub: 2),
                   ),
                 ],
                 const SizedBox(height: 24),

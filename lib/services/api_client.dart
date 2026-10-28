@@ -140,6 +140,30 @@ class Api {
     }
   }
 
+  /// true si la petición falló por falta de conexión (no porque el servidor la rechazara).
+  static bool esErrorDeRed(Object e) =>
+      e is DioException &&
+      e.response == null &&
+      const {
+        DioExceptionType.connectionError,
+        DioExceptionType.connectionTimeout,
+        DioExceptionType.receiveTimeout,
+        DioExceptionType.sendTimeout,
+        DioExceptionType.unknown,
+      }.contains(e.type);
+
+  /// Modifica la copia guardada de un GET (sin parámetros) para que la pantalla refleje lo hecho
+  /// sin red mientras la cola no se envía. Si no hay copia no hace nada.
+  Future<void> parchearCache(String path, dynamic Function(dynamic datos) cambiar) async {
+    final p = await SharedPreferences.getInstance();
+    final k = 'cache:$cacheScope:$path:{}';
+    final raw = p.getString(k);
+    if (raw == null) return;
+    try {
+      await p.setString(k, jsonEncode(cambiar(jsonDecode(raw))));
+    } catch (_) {}
+  }
+
   /// true si el backend rechazó la acción porque requiere el plan Premium.
   static bool esPremiumRequerido(Object e) {
     if (e is! DioException) return false;

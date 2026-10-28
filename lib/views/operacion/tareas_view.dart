@@ -50,13 +50,29 @@ class AccionesTarea {
     }
     final sugerida = elegidos.isNotEmpty;
 
+    // Con la persona ya elegida se propone el pago (tarifa × tiempo, o promedio de lo pagado antes)
+    Map<String, dynamic>? pago;
+    if (sugerida && elegidos.length == 1) {
+      try {
+        pago = await operacionService.pagoSugerido(t.idtarea, elegidos.first);
+      } catch (_) {}
+      if (!c.mounted) return false;
+    }
+    final propuesto = pago?['sugerido'];
+
     final d = await showForm(
       c,
       t.asignacion == null ? 'Asignar tarea' : 'Reasignar tarea',
       [
         if (!sugerida) FieldDef('idempleado', 'Empleado', type: FT.select, required: true, options: emps),
-        const FieldDef('pagoacordado', 'Pago acordado (COP)', type: FT.number, min: 0),
+        FieldDef('pagoacordado', 'Pago acordado (COP)',
+            type: FT.number,
+            min: 0,
+            helper: propuesto == null
+                ? null
+                : 'Sugerido: ${s(pago?['detalle'])}. Si registra horas, se paga por tiempo trabajado.'),
       ],
+      initial: propuesto == null ? null : {'pagoacordado': propuesto},
       okLabel: 'Asignar',
       edit: false,
     );
@@ -114,17 +130,21 @@ class AccionesTarea {
       FieldDef('observaciones', 'Observaciones (opcional)', type: FT.multiline),
     ], okLabel: 'Enviar y completar', edit: false);
     if (obs == null || !c.mounted) return false;
-    return run(
-      c,
-      () => operacionService.completarConEvidencia(
+    var enCola = false;
+    final ok = await run(c, () async {
+      enCola = await operacionService.completarConEvidencia(
         tarea: t,
         foto: img.bytes,
         nombreArchivo: img.nombre,
         observaciones: s(obs['observaciones']),
-        nombreEmpleado: session.nombreCompleto,
-      ),
-      ok: 'Tarea completada; el administrador recibió el PDF de evidencia',
-    );
+      );
+    });
+    if (ok && c.mounted) {
+      snack(c, enCola
+          ? 'Sin conexión: la tarea quedó completada en tu celular y se enviará con la foto al volver la red'
+          : 'Tarea completada; el administrador recibió el PDF de evidencia');
+    }
+    return ok;
   }
 
   static Future<bool> editar(BuildContext c, Tarea t) async {
