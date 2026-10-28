@@ -26,16 +26,71 @@ class AccionesTarea {
       snack(c, 'No hay empleados activos. Regístralos en Más › Equipo.');
       return false;
     }
-    final d = await showForm(c, t.asignacion == null ? 'Asignar tarea' : 'Reasignar tarea', [
-      FieldDef('idempleado', 'Empleado', type: FT.select, required: true, options: emps),
-      const FieldDef('pagoacordado', 'Pago acordado (COP)', type: FT.number, min: 0),
-    ], okLabel: 'Asignar', edit: false);
+
+    // El sistema propone a quién asignar; si no hay red o falla, se elige a mano como siempre
+    var lista = <Map<String, dynamic>>[];
+    var personas = 1;
+    try {
+      final sug = await operacionService.sugerenciasAsignacion(t.idtarea);
+      personas = (sug['numpersonas'] as num?)?.toInt() ?? 1;
+      lista = [for (final x in (sug['sugerencias'] as List? ?? const [])) (x as Map).cast<String, dynamic>()];
+    } catch (_) {}
+    if (!c.mounted) return false;
+
+    var elegidos = <int>[];
+    if (lista.isNotEmpty) {
+      final r = await showModalBottomSheet<List<int>>(
+        context: c,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => SelectorSugerido(sugerencias: lista, personas: personas),
+      );
+      if (r == null || !c.mounted) return false; // cerró la hoja sin decidir
+      elegidos = r; // vacío = "elegir a otra persona"
+    }
+    final sugerida = elegidos.isNotEmpty;
+
+    final d = await showForm(
+      c,
+      t.asignacion == null ? 'Asignar tarea' : 'Reasignar tarea',
+      [
+        if (!sugerida) FieldDef('idempleado', 'Empleado', type: FT.select, required: true, options: emps),
+        const FieldDef('pagoacordado', 'Pago acordado (COP)', type: FT.number, min: 0),
+      ],
+      okLabel: 'Asignar',
+      edit: false,
+    );
     if (d == null || !c.mounted) return false;
-    return run(c, () => operacionService.asignarTarea(t.idtarea, d), ok: 'Tarea asignada; se notificó al empleado por correo');
+
+    final ids = sugerida ? elegidos : [(d['idempleado'] as num).toInt()];
+    // Reasignar cierra la asignación anterior (queda en el historial) para no dejar la tarea esperando a otra persona
+    return run(
+      c,
+      () async {
+        for (var i = 0; i < ids.length; i++) {
+          await operacionService.asignarTarea(t.idtarea, {
+            ...d,
+            'idempleado': ids[i],
+            'origenasignacion': sugerida ? 'sugerida' : 'manual',
+            if (i == 0 && t.asignacion != null) 'reemplazar': true,
+          });
+        }
+      },
+      ok: ids.length > 1 ? 'Tarea asignada a ${ids.length} personas' : 'Tarea asignada; se notificó al empleado por correo',
+    );
   }
 
-  static Future<bool> iniciar(BuildContext c, Tarea t) =>
-      run(c, () => operacionService.actualizarTarea(t.idtarea, {'estado': 'En progreso'}), ok: 'Tarea en progreso');
+  /// Con asignación se guarda la hora de inicio (cronómetro); sin asignación solo cambia el estado.
+  static Future<bool> iniciar(BuildContext c, Tarea t) {
+    final asig = t.asignacion;
+    return run(
+      c,
+      () => asig != null
+          ? operacionService.iniciarAsignacion((asig['idasigtarea'] as num).toInt())
+          : operacionService.actualizarTarea(t.idtarea, {'estado': 'En progreso'}),
+      ok: 'Tarea en progreso',
+    );
+  }
 
   static Future<bool> completar(BuildContext c, Tarea t) async {
     if (!await confirmar(c, 'Se avisará por correo al administrador.', titulo: '¿Marcar «${t.actividad}» como completada?', ok: 'Completar')) {
@@ -175,10 +230,72 @@ class _TareasPageState extends State<TareasPage> {
             ]),
             style: AgroText.muted,
           ),
-          badges: t.estado.isEmpty ? null : StatusBadge(t.estado),
+          badges: t.atrasada
+              ? Wrap(spacing: 6, children: [if (t.estado.isNotEmpty) StatusBadge(t.estado), const StatusBadge('Atrasada')])
+              : (t.estado.isEmpty ? null : StatusBadge(t.estado)),
           trailing: RowMenu(item: m, reload: reload, actions: AccionesTarea.para(t)),
         );
       },
+    );
+  }
+}
+
+/// Hoja con las personas que el sistema recomienda para una tarea y por qué.
+class SelectorSugerido extends StatefulWidget {
+  final List<Map<String, dynamic>> sugerencias;
+  final int personas;
+  const SelectorSugerido({super.key, required this.sugerencias, this.personas = 1});
+  @override
+  State<SelectorSugerido> createState() => _SelectorSugeridoState();
+}
+
+class _SelectorSugeridoState extends State<SelectorSugerido> {
+  late final Set<int> _sel = {
+    for (final x in widget.sugerencias.take(widget.personas)) (x['idusuario'] as num).toInt(),
+  };
+
+  void _alternar(int id, bool on) => setState(() {
+        if (widget.personas == 1) _sel.clear();
+        on ? _sel.add(id) : _sel.remove(id);
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(widget.personas > 1 ? 'Sugerencias · se necesitan ${widget.personas} personas' : 'Sugerencias del sistema', style: AgroText.title),
+          const SizedBox(height: 2),
+          const Text('Según carga de trabajo, experiencia en la labor y disponibilidad.', style: AgroText.muted),
+          const SizedBox(height: 8),
+          Flexible(
+            child: ListView(shrinkWrap: true, children: [
+              for (final x in widget.sugerencias)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _sel.contains((x['idusuario'] as num).toInt()),
+                  onChanged: (v) => _alternar((x['idusuario'] as num).toInt(), v == true),
+                  secondary: AgroAvatar(url: s(x['foto']), nombre: s(x['nombre']), radius: 18),
+                  title: Text(s(x['nombre']), style: AgroText.title),
+                  subtitle: Text(
+                    ((x['motivos'] as List?) ?? const []).map((m) => '$m').join(' · '),
+                    style: AgroText.muted,
+                  ),
+                ),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _sel.isEmpty ? null : () => Navigator.pop(context, _sel.toList()),
+              child: Text(_sel.length > 1 ? 'Asignar a ${_sel.length} personas' : 'Asignar'),
+            ),
+          ),
+          Center(child: TextButton(onPressed: () => Navigator.pop(context, <int>[]), child: const Text('Elegir a otra persona'))),
+        ]),
+      ),
     );
   }
 }

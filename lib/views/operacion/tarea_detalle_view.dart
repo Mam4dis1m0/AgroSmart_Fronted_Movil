@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/models/operacion.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
@@ -14,6 +15,39 @@ class TareaDetallePage extends StatefulWidget {
   const TareaDetallePage({super.key, required this.idtarea});
   @override
   State<TareaDetallePage> createState() => _TareaDetallePageState();
+}
+
+/// Tiempo transcurrido como `2 h 05 min` (o `35 min` si es menos de una hora).
+String _duracion(Duration d) {
+  final h = d.inHours, m = d.inMinutes.remainder(60);
+  return h > 0 ? '$h h ${m.toString().padLeft(2, '0')} min' : '$m min';
+}
+
+/// Cronómetro de la asignación en curso: se actualiza cada segundo mientras está visible.
+class _Cronometro extends StatefulWidget {
+  final DateTime inicio;
+  const _Cronometro(this.inicio);
+  @override
+  State<_Cronometro> createState() => _CronometroState();
+}
+
+class _CronometroState extends State<_Cronometro> {
+  late final Timer _t = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+
+  @override
+  void dispose() {
+    _t.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = DateTime.now().difference(widget.inicio);
+    final s = d.inSeconds < 0 ? 0 : d.inSeconds;
+    String dos(int v) => v.toString().padLeft(2, '0');
+    return Text('${dos(s ~/ 3600)}:${dos((s % 3600) ~/ 60)}:${dos(s % 60)}',
+        style: AgroText.title.copyWith(fontSize: 22, fontFeatures: const [FontFeature.tabularFigures()]));
+  }
 }
 
 class _TareaDetallePageState extends State<TareaDetallePage> {
@@ -105,13 +139,33 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                     Row(children: [
                       Expanded(child: Text(t.actividad, style: AgroText.title.copyWith(fontSize: 17))),
                       if (t.estado.isNotEmpty) StatusBadge(t.estado),
+                      if (t.atrasada) ...[const SizedBox(width: 6), const StatusBadge('Atrasada')],
                     ]),
                     const SizedBox(height: 10),
                     InfoRow('Fecha programada', fecha(t.fechaprogramada)),
                     InfoRow('Cultivo', t.cultivoNombre),
+                    InfoRow('Prioridad', t.prioridad),
+                    if (n(t.raw['horasestimadas']) > 0) InfoRow('Tiempo estimado', '${cant(t.raw['horasestimadas'])} h'),
                     if (n(t.raw['costototal']) > 0) InfoRow('Costo estimado', money(t.raw['costototal'])),
+                    if (t.costoReal > 0) InfoRow('Costo real', money(t.costoReal), strong: true),
                   ]),
                 ),
+                if (t.enCurso && t.inicioReal != null) ...[
+                  const SizedBox(height: 14),
+                  AgroCard(
+                    color: AgroColors.surfaceGreen,
+                    child: Row(children: [
+                      const Icon(Icons.timer_outlined, color: AgroColors.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Text('En curso', style: AgroText.muted),
+                          _Cronometro(t.inicioReal!),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 const AgroSectionHeader('Asignación'),
                 const SizedBox(height: 8),
@@ -138,6 +192,9 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                           const SizedBox(height: 8),
                           InfoRow('Asignada el', fecha(asig['fechaasignacion'])),
                           if (n(asig['pagoacordado']) > 0) InfoRow('Pago acordado', money(asig['pagoacordado'])),
+                          if (t.inicioReal != null) InfoRow('Inicio real', fecha(t.inicioReal, hora: true)),
+                          if (asig['fechafin'] != null && t.inicioReal != null)
+                            InfoRow('Duración', _duracion(DateTime.parse('${asig['fechafin']}').toLocal().difference(t.inicioReal!))),
                           InfoRow('Horas trabajadas', cant(asig['horastrabajadas'])),
                           InfoRow('Jornales trabajados', cant(asig['jornadastrabajadas'])),
                           const SizedBox(height: 6),

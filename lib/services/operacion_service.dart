@@ -26,9 +26,17 @@ class OperacionService {
   }
 
   /// PATCH /api/v1/tareas/{idasigtarea}/completar — el id es el de la ASIGNACIÓN.
+  /// `at` es la hora real del toque: si no hay red la petición se encola y el servidor respeta esta hora.
   Future<void> completarAsignacion(int idasigtarea) async {
-    await Api.i.dio.patch('/api/v1/tareas/$idasigtarea/completar');
+    await Api.i.dio.patch('/api/v1/tareas/$idasigtarea/finalizar', data: {'at': _ahora()});
   }
+
+  /// PATCH /api/v1/tareas/{idasigtarea}/iniciar — marca la hora de inicio (cronómetro).
+  Future<void> iniciarAsignacion(int idasigtarea) async {
+    await Api.i.dio.patch('/api/v1/tareas/$idasigtarea/iniciar', data: {'at': _ahora()});
+  }
+
+  static String _ahora() => DateTime.now().toUtc().toIso8601String();
 
   /// POST /api/v1/tareas/{id}/completar-con-evidencia (multipart; genera PDF y lo envía al admin)
   Future<void> completarConEvidencia({
@@ -47,6 +55,7 @@ class OperacionService {
       if ((nombreEmpleado ?? '').isNotEmpty) 'nombreEmpleado': nombreEmpleado,
       if (tarea.lote.isNotEmpty) 'lote': tarea.lote,
       if (asig != null) 'idasigtarea': '${asig['idasigtarea']}',
+      'at': _ahora(),
     });
     await Api.i.dio.post('/api/v1/tareas/${tarea.idtarea}/completar-con-evidencia', data: form);
   }
@@ -103,6 +112,56 @@ class OperacionService {
   static String _num(dynamic v) {
     final x = v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     return x == x.roundToDouble() ? x.round().toString() : x.toStringAsFixed(2);
+  }
+
+  // ── Plantillas de labores y plan del cultivo ────────────────────────────
+
+  /// Categorías de manejo (ciclo corto, perennes, palma…).
+  Future<List<MapEntry<dynamic, String>>> categoriasOpc() async => [
+        for (final c in await _list('/api/v1/plantillas/categorias')) MapEntry(c['id'], '${c['nombre']} · ${c['ejemplos']}'),
+      ];
+
+  /// Qué tareas se crearían para el cultivo (no crea nada).
+  Future<Map<String, dynamic>> planLabores(int idcultivo) async {
+    final r = await Api.i.dio.get('/api/v1/plantillas/plan/$idcultivo');
+    return (r.data as Map).cast<String, dynamic>();
+  }
+
+  /// Crea las tareas elegidas del plan; devuelve cuántas se crearon.
+  Future<int> generarPlan(int idcultivo, List<int> ids) async {
+    final r = await Api.i.dio.post('/api/v1/plantillas/plan/$idcultivo', data: {'ids': ids});
+    return ((r.data as Map)['creadas'] as num?)?.toInt() ?? 0;
+  }
+
+  /// A quién conviene asignar la tarea: {numpersonas, sugerencias:[{idusuario, nombre, foto, puntaje, motivos}]}.
+  Future<Map<String, dynamic>> sugerenciasAsignacion(int idtarea) async {
+    final r = await Api.i.dio.get('/api/v1/tareas/$idtarea/sugerencias');
+    return (r.data as Map).cast<String, dynamic>();
+  }
+
+  /// manual | sugerida | automatica
+  Future<String> modoAsignacion() async {
+    final r = await Api.i.dio.get('/api/v1/tareas/config/modo-asignacion');
+    return ((r.data as Map)['modo'] ?? 'sugerida').toString();
+  }
+
+  Future<void> cambiarModoAsignacion(String modo) async {
+    await Api.i.dio.put('/api/v1/tareas/config/modo-asignacion', data: {'modo': modo});
+  }
+
+  /// Plantillas propias de la finca.
+  Future<List<Map<String, dynamic>>> plantillas() => _list('/api/v1/plantillas');
+
+  Future<void> adoptarCategoria(String categoria) async {
+    await Api.i.dio.post('/api/v1/plantillas/adoptar', data: {'categoria': categoria});
+  }
+
+  Future<void> crearPlantilla(Map<String, dynamic> data) async {
+    await Api.i.dio.post('/api/v1/plantillas', data: data);
+  }
+
+  Future<void> actualizarPlantilla(int id, Map<String, dynamic> data) async {
+    await Api.i.dio.put('/api/v1/plantillas/$id', data: data);
   }
 
   /// Opciones de cultivo para selects.
