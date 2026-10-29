@@ -194,7 +194,10 @@ class _HiloPageState extends State<HiloPage> {
         return;
       }
       // Sin internet: va por SMS, dentro de la app.
-      final sms = await smsService.enviar(_idhilo, t);
+      final sms = await smsService.enviar(_idhilo, t).timeout(
+            const Duration(seconds: 90),
+            onTimeout: () => throw 'No se pudo enviar el SMS (sin respuesta). Revisa permisos y señal móvil.',
+          );
       if (!mounted) return;
       _in.clear();
       Api.i.offline.value = true;
