@@ -167,8 +167,23 @@ class AccionesTarea {
   }
 
   static Future<bool> completarConFoto(BuildContext c, Tarea t) async {
-    final img = await elegirImagen(c, maxWidth: 1400);
-    if (img == null || !c.mounted) return false;
+    final inicial = await elegirImagen(c, maxWidth: 1400);
+    if (inicial == null || !c.mounted) return false;
+    var img = inicial;
+    EvidenciaPendiente.poner(t.idtarea, img);
+    while (c.mounted) {
+      final op = await _previsualizarEvidencia(c, img);
+      if (op != 'otra') {
+        // 'usar' continúa; cerrar la vista previa cancela (la foto queda pendiente)
+        if (op != 'usar') return false;
+        break;
+      }
+      if (!c.mounted) return false;
+      final otra = await elegirImagen(c, maxWidth: 1400);
+      if (otra == null || !c.mounted) return false;
+      img = otra;
+      EvidenciaPendiente.poner(t.idtarea, img);
+    }
     final obs = await showForm(c, 'Evidencia de la tarea', const [
       FieldDef('observaciones', 'Observaciones (opcional)', type: FT.multiline),
     ], okLabel: 'Enviar y completar', edit: false);
@@ -185,12 +200,31 @@ class AccionesTarea {
         cosecha: cosecha.isEmpty ? null : cosecha,
       );
     });
+    if (ok) EvidenciaPendiente.quitar(t.idtarea);
     if (ok && c.mounted) {
       snack(c, enCola
           ? 'Sin conexión: la tarea quedó completada en tu celular y se enviará con la foto al volver la red'
           : 'Tarea completada; el administrador recibió el PDF de evidencia');
     }
     return ok;
+  }
+
+  /// Muestra la foto elegida antes de enviarla: 'usar' continúa, 'otra' la reemplaza, null cierra.
+  static Future<String?> _previsualizarEvidencia(BuildContext c, ImagenElegida img) {
+    return showDialog<String>(
+      context: c,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Vista previa de la evidencia'),
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.memory(img.bytes, height: 280, fit: BoxFit.contain),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 'otra'), child: const Text('Elegir otra')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'usar'), child: const Text('Usar esta foto')),
+        ],
+      ),
+    );
   }
 
   static Future<bool> editar(BuildContext c, Tarea t) async {
@@ -305,9 +339,22 @@ class _TareasPageState extends State<TareasPage> {
             ]),
             style: AgroText.muted,
           ),
-          badges: t.atrasada
-              ? Wrap(spacing: 6, children: [if (t.estado.isNotEmpty) StatusBadge(t.estado), const StatusBadge('Atrasada')])
-              : (t.estado.isEmpty ? null : StatusBadge(t.estado)),
+          badges: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (t.estado.isNotEmpty) StatusBadge(t.estado),
+              if (t.atrasada) const StatusBadge('Atrasada'),
+              if (t.evidencias > 0)
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.photo_camera_outlined,
+                      size: 16, color: AgroColors.primary),
+                  const SizedBox(width: 2),
+                  Text('${t.evidencias}', style: AgroText.muted),
+                ]),
+            ],
+          ),
           trailing: RowMenu(item: m, reload: reload, actions: AccionesTarea.para(t)),
         );
       },

@@ -435,6 +435,13 @@ class _EmpleadoInicioPageState extends State<EmpleadoInicioPage> {
           children: [
             Row(children: [
               StatusBadge(_est(t)),
+              if (t.evidencias > 0) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.photo_camera_outlined,
+                    size: 16, color: AgroColors.primary),
+                const SizedBox(width: 4),
+                Text('${t.evidencias}', style: AgroText.muted),
+              ],
               const Spacer(),
               if (tieneAsig) ...[
                 const Icon(Icons.timer_outlined,
