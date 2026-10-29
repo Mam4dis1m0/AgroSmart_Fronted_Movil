@@ -11,8 +11,10 @@ import 'package:agrosmart_proto/services/operacion_service.dart';
 /// Simula un celular sin conexión: toda petición falla como si no hubiera red.
 class _SinRed implements HttpClientAdapter {
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) {
-    throw DioException(requestOptions: options, type: DioExceptionType.connectionError);
+  Future<ResponseBody> fetch(RequestOptions options,
+      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) {
+    throw DioException(
+        requestOptions: options, type: DioExceptionType.connectionError);
   }
 
   @override
@@ -22,17 +24,27 @@ class _SinRed implements HttpClientAdapter {
 const _scope = 'u1f1';
 String _clave(String path) => 'cache:$_scope:$path:{}';
 
-Map<String, dynamic> _tarea({String estado = 'Asignado', Map<String, dynamic>? asig}) => {
+Map<String, dynamic> _tarea(
+        {String estado = 'Asignado', Map<String, dynamic>? asig}) =>
+    {
       'idtarea': 7,
       'tipoactividad': 'Fertilización',
       'estado': estado,
       'asignacionTareas': [
-        {'idasigtarea': 70, 'estado': 'Asignado', 'fechainicio': null, 'fechafin': null, 'horastrabajadas': null, ...?asig},
+        {
+          'idasigtarea': 70,
+          'estado': 'Asignado',
+          'fechainicio': null,
+          'fechafin': null,
+          'horastrabajadas': null,
+          ...?asig
+        },
       ],
     };
 
 Future<Map<String, dynamic>> _cacheTarea(SharedPreferences p) async =>
-    (jsonDecode(p.getString(_clave('/api/v1/tareas/7'))!) as Map).cast<String, dynamic>();
+    (jsonDecode(p.getString(_clave('/api/v1/tareas/7'))!) as Map)
+        .cast<String, dynamic>();
 
 void main() {
   late HttpClientAdapter original;
@@ -59,7 +71,9 @@ void main() {
     Api.i.cacheScope = '';
   });
 
-  test('Iniciar sin red encola la acción con la hora del toque y muestra el cronómetro', () async {
+  test(
+      'Iniciar sin red encola la acción con la hora del toque y muestra el cronómetro',
+      () async {
     await OperacionService().iniciarAsignacion(70);
 
     final p = await SharedPreferences.getInstance();
@@ -74,11 +88,22 @@ void main() {
     expect(t.inicioReal, isNotNull);
   });
 
-  test('Finalizar sin red cierra la asignación, calcula las horas del cronómetro y completa la tarea', () async {
-    final inicio = DateTime.now().toUtc().subtract(const Duration(hours: 2)).toIso8601String();
+  test(
+      'Finalizar sin red cierra la asignación, calcula las horas del cronómetro y completa la tarea',
+      () async {
+    final inicio = DateTime.now()
+        .toUtc()
+        .subtract(const Duration(hours: 2))
+        .toIso8601String();
     SharedPreferences.setMockInitialValues({
-      _clave('/api/v1/tareas'): jsonEncode([_tarea(estado: 'En progreso', asig: {'estado': 'En progreso', 'fechainicio': inicio})]),
-      _clave('/api/v1/tareas/7'): jsonEncode(_tarea(estado: 'En progreso', asig: {'estado': 'En progreso', 'fechainicio': inicio})),
+      _clave('/api/v1/tareas'): jsonEncode([
+        _tarea(
+            estado: 'En progreso',
+            asig: {'estado': 'En progreso', 'fechainicio': inicio})
+      ]),
+      _clave('/api/v1/tareas/7'): jsonEncode(_tarea(
+          estado: 'En progreso',
+          asig: {'estado': 'En progreso', 'fechainicio': inicio})),
     });
 
     await OperacionService().completarAsignacion(70);
@@ -92,11 +117,14 @@ void main() {
     expect(lista.single['estado'], 'Completado');
   });
 
-  test('Con varias asignaciones la tarea no se marca completada hasta que terminen todas', () async {
-    final dos = _tarea()..['asignacionTareas'] = [
-      {'idasigtarea': 70, 'estado': 'Asignado'},
-      {'idasigtarea': 71, 'estado': 'Asignado'},
-    ];
+  test(
+      'Con varias asignaciones la tarea no se marca completada hasta que terminen todas',
+      () async {
+    final dos = _tarea()
+      ..['asignacionTareas'] = [
+        {'idasigtarea': 70, 'estado': 'Asignado'},
+        {'idasigtarea': 71, 'estado': 'Asignado'},
+      ];
     SharedPreferences.setMockInitialValues({
       _clave('/api/v1/tareas'): jsonEncode([dos]),
       _clave('/api/v1/tareas/7'): jsonEncode(dos),
@@ -106,35 +134,51 @@ void main() {
 
     final t = Tarea(await _cacheTarea(await SharedPreferences.getInstance()));
     expect(t.completada, isFalse);
-    expect(t.asignaciones.firstWhere((a) => a['idasigtarea'] == 70)['estado'], 'Completado');
+    expect(t.asignaciones.firstWhere((a) => a['idasigtarea'] == 70)['estado'],
+        'Completado');
   });
 
-  test('Registrar un insumo sin red lo muestra como usado y lo quita de las sugerencias', () async {
-    await OperacionService().registrarInsumoUsado(7, {'idinsumo': 11, 'cantidadusada': 5}, nombre: 'Urea', unidad: 'kg');
+  test(
+      'Registrar un insumo sin red lo muestra como usado y lo quita de las sugerencias',
+      () async {
+    await OperacionService().registrarInsumoUsado(
+        7, {'idinsumo': 11, 'cantidadusada': 5},
+        nombre: 'Urea', unidad: 'kg');
 
     final p = await SharedPreferences.getInstance();
-    final usados = jsonDecode(p.getString(_clave('/detalle-tarea/tarea/7'))!) as List;
+    final usados =
+        jsonDecode(p.getString(_clave('/detalle-tarea/tarea/7'))!) as List;
     expect(usados.single['idinsumo']['nombre'], 'Urea');
     expect(usados.single['cantidadusada'], 5);
-    final sugeridos = jsonDecode(p.getString(_clave('/api/v1/tareas/7/insumos-sugeridos'))!) as List;
+    final sugeridos =
+        jsonDecode(p.getString(_clave('/api/v1/tareas/7/insumos-sugeridos'))!)
+            as List;
     expect(sugeridos.map((x) => x['idinsumo']), [12]);
   });
 
-  test('Una foto tomada sin red se guarda en el celular, se ve completada y se reenvía al volver la red', () async {
+  test(
+      'Una foto tomada sin red se guarda en el celular, se ve completada y se reenvía al volver la red',
+      () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     final dir = Directory.systemTemp.createTempSync('cola_test');
     addTearDown(() => dir.deleteSync(recursive: true));
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (_) async => dir.path);
+        .setMockMethodCallHandler(
+            const MethodChannel('plugins.flutter.io/path_provider'),
+            (_) async => dir.path);
 
     final foto = Uint8List.fromList(List.generate(64, (i) => i));
     final enCola = await OperacionService().completarConEvidencia(
-      tarea: Tarea(_tarea()), foto: foto, nombreArchivo: 'f.jpg', observaciones: 'Listo',
+      tarea: Tarea(_tarea()),
+      foto: foto,
+      nombreArchivo: 'f.jpg',
+      observaciones: 'Listo',
     );
 
     expect(enCola, isTrue);
     final p = await SharedPreferences.getInstance();
-    final cola = (jsonDecode(p.getString('cola_offline')!) as List).single as Map;
+    final cola =
+        (jsonDecode(p.getString('cola_offline')!) as List).single as Map;
     expect(cola['tipo'], 'subida');
     expect(cola['path'], '/api/v1/tareas/7/completar-con-evidencia');
     final ruta = cola['archivo']['ruta'] as String;
@@ -150,8 +194,54 @@ void main() {
     expect(enviada.single.path, '/api/v1/tareas/7/completar-con-evidencia');
     expect(form.files.single.key, 'evidencia');
     expect(form.files.single.value.length, 64);
-    expect(form.fields.map((f) => f.key), containsAll(['observaciones', 'idasigtarea', 'at']));
+    expect(form.fields.map((f) => f.key),
+        containsAll(['observaciones', 'idasigtarea', 'at']));
     expect(File(ruta).existsSync(), isFalse);
+    expect(Api.i.cola.pendientes.value, 0);
+  });
+
+  test(
+      'Agregar evidencia sin red conserva la foto y Api.sincronizar la sube al volver la conexión',
+      () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final dir = Directory.systemTemp.createTempSync('cola_evidencia_test');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+            const MethodChannel('plugins.flutter.io/path_provider'),
+            (_) async => dir.path);
+
+    final foto = Uint8List.fromList(List.generate(128, (i) => 255 - i));
+    expect(
+      await OperacionService().agregarEvidencia(
+        7,
+        foto: foto,
+        nombreArchivo: 'galeria.jpg',
+        observaciones: 'Lote revisado',
+      ),
+      isTrue,
+    );
+
+    final p = await SharedPreferences.getInstance();
+    final cola =
+        (jsonDecode(p.getString('cola_offline')!) as List).single as Map;
+    final rutaLocal = cola['archivo']['ruta'] as String;
+    expect(File(rutaLocal).existsSync(), isTrue);
+    expect(cola['path'], '/api/v1/tareas/7/evidencias');
+    expect(cola['campos']['observaciones'], 'Lote revisado');
+
+    final enviada = <RequestOptions>[];
+    Api.i.dio.httpClientAdapter = _Registra(enviada);
+    await Api.i.sincronizar();
+
+    final subida = enviada.singleWhere(
+      (request) => request.path == '/api/v1/tareas/7/evidencias',
+    );
+    final form = subida.data as FormData;
+    expect(form.files.single.key, 'evidencia');
+    expect(form.files.single.value.length, foto.length);
+    expect(form.fields.single.value, 'Lote revisado');
+    expect(File(rutaLocal).existsSync(), isFalse);
     expect(Api.i.cola.pendientes.value, 0);
   });
 }
@@ -162,9 +252,12 @@ class _Registra implements HttpClientAdapter {
   final List<RequestOptions> vistas;
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(RequestOptions options,
+      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
     vistas.add(options);
-    return ResponseBody.fromString('{}', 200, headers: {Headers.contentTypeHeader: ['application/json']});
+    return ResponseBody.fromString('{}', 200, headers: {
+      Headers.contentTypeHeader: ['application/json']
+    });
   }
 
   @override

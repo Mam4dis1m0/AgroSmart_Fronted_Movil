@@ -4,7 +4,7 @@ import 'package:agrosmart_proto/theme.dart';
 import 'package:agrosmart_proto/ui/design.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
 
-/// Carrito del comprador (Premium): varias ofertas en una sola acción.
+/// Carrito de compras: varias ofertas en una sola acción.
 class CarritoTab extends StatefulWidget {
   const CarritoTab({super.key});
   @override
@@ -33,14 +33,17 @@ class _CarritoTabState extends State<CarritoTab> {
       return;
     }
     if (!mounted) return;
-    if (await run(context, marketplaceService.ordenarCarrito, ok: 'Órdenes enviadas a los vendedores')) {
+    if (await run(context, marketplaceService.ordenarCarrito,
+        ok: 'Órdenes enviadas a los vendedores')) {
       _k.currentState?.reload();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final total = _items.where((i) => i['disponible'] != false).fold<double>(0, (a, i) => a + n(i['subtotal']));
+    final total = _items
+        .where((i) => i['disponible'] != false)
+        .fold<double>(0, (a, i) => a + n(i['subtotal']));
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: AsyncList(
@@ -52,7 +55,9 @@ class _CarritoTabState extends State<CarritoTab> {
           final fotos = (it['fotos'] as List?) ?? const [];
           final foto = fotos.isEmpty
               ? ''
-              : s(fotos.first is Map ? (fotos.first as Map)['url'] : fotos.first);
+              : s(fotos.first is Map
+                  ? (fotos.first as Map)['url']
+                  : fotos.first);
           return AgroListCard(
             leading: AgroProductThumb(url: foto),
             title: Text(s(it['titulo']), style: AgroText.title),
@@ -60,13 +65,11 @@ class _CarritoTabState extends State<CarritoTab> {
               '${cant(it['cantidad'])} ${s(it['unidad'])} · ${money(it['subtotal'])}',
               style: AgroText.muted,
             ),
-            badges: it['disponible'] == false
-                ? const StatusBadge('agotado')
-                : null,
+            badges:
+                it['disponible'] == false ? const StatusBadge('agotado') : null,
             trailing: IconButton(
               tooltip: 'Quitar del carrito',
-              icon: const Icon(Icons.delete_outline,
-                  color: AgroColors.danger),
+              icon: const Icon(Icons.delete_outline, color: AgroColors.danger),
               onPressed: () async {
                 if (!await confirmar(
                   c,
@@ -80,8 +83,8 @@ class _CarritoTabState extends State<CarritoTab> {
                 if (!c.mounted) return;
                 if (await run(
                     c,
-                    () => marketplaceService
-                        .quitarDelCarrito(it['idlistado']))) {
+                    () =>
+                        marketplaceService.quitarDelCarrito(it['idlistado']))) {
                   reload();
                 }
               },

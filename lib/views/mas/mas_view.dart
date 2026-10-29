@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
 import 'package:agrosmart_proto/providers/session_provider.dart';
 import 'package:agrosmart_proto/services/contadores.dart';
@@ -16,7 +16,7 @@ import 'package:agrosmart_proto/views/perfil/perfil_view.dart';
 import 'package:agrosmart_proto/views/plan/plan_view.dart';
 import 'package:agrosmart_proto/views/reportes/reportes_view.dart';
 
-/// MenÃº lateral: cuenta, gestiÃ³n de la finca, herramientas y sesiÃ³n.
+/// Menú lateral: cuenta, gestión de la finca, herramientas y sesión.
 class MasPage extends StatelessWidget {
   const MasPage({super.key});
 
@@ -90,30 +90,33 @@ class MasPage extends StatelessWidget {
         children: [
           section('Cuenta', [
             entry(Icons.person_outline, 'Mi perfil',
-                'Datos personales, foto y contraseÃ±a', const PerfilPage()),
+                'Datos personales, foto y contraseña', const PerfilPage()),
           ]),
           if (esAdmin)
-            section('GestiÃ³n de la finca', [
+            section('Gestión de la finca', [
               tile(
                 icon: Icons.agriculture,
                 title: 'Datos de la finca',
-                sub: 'Nombre, ubicaciÃ³n y tipo de producciÃ³n',
+                sub: 'Nombre, ubicación y tipo de producción',
                 onTap: () => editarFinca(context),
               ),
               entry(Icons.group, 'Equipo', 'Empleados, tarifas y accesos',
                   const EquipoPage()),
-              entry(Icons.payments, 'NÃ³mina', 'LiquidaciÃ³n de jornales y horas',
+              entry(Icons.payments, 'Nómina', 'Liquidación de jornales y horas',
                   const NominaPage()),
               entry(Icons.bar_chart, 'Reportes',
-                  'Costos por cultivo y exportaciÃ³n CSV', const ReportesPage()),
-              entry(Icons.workspace_premium, 'Plan y suscripciÃ³n',
+                  'Costos por cultivo y exportación CSV', const ReportesPage()),
+              entry(Icons.workspace_premium, 'Plan y suscripción',
                   'Freemium o Premium, pagos', const PlanPage()),
             ]),
           section('Herramientas', [
             if (!session.esEmpleado)
-              entry(Icons.notifications, 'Avisos',
-                'Notificaciones de la finca y del mercado', const AvisosPage(),
-                badge: contadores.avisos),
+              entry(
+                  Icons.notifications,
+                  'Avisos',
+                  'Notificaciones de la finca y del mercado',
+                  const AvisosPage(),
+                  badge: contadores.avisos),
             if (esAdmin)
               tile(
                 icon: Icons.chat_bubble_outline,
@@ -123,12 +126,12 @@ class MasPage extends StatelessWidget {
                 onTap: () => abrirBandeja(context),
               ),
             entry(Icons.smart_toy, 'Asistente IA',
-                'Consultas agrÃ­colas (Premium)', const AsistentePage()),
+                'Consultas agrícolas (Premium)', const AsistentePage()),
             if (esAdmin)
-              entry(Icons.history, 'AuditorÃ­a', 'Registro de actividad',
+              entry(Icons.history, 'Auditoría', 'Registro de actividad',
                   const AuditoriaPage()),
           ]),
-          section('SesiÃ³n', [
+          section('Sesión', [
             if (session.fincas.length > 1)
               tile(
                 icon: Icons.swap_horiz,
@@ -138,7 +141,7 @@ class MasPage extends StatelessWidget {
               ),
             tile(
               icon: Icons.logout,
-              title: 'Cerrar sesiÃ³n',
+              title: 'Cerrar sesión',
               iconColor: AgroColors.danger,
               iconBg: AgroColors.dangerBg,
               titleColor: AgroColors.danger,
@@ -173,8 +176,6 @@ Future<void> editarFinca(BuildContext c) async {
             MapEntry('Agricultura mixta', 'Agricultura mixta'),
           ],
         ),
-        FieldDef('ubicacion', 'UbicaciÃ³n (municipio, departamento)'),
-        FieldDef('tipoproduccion', 'Tipo de producciÃ³n (cafÃ©, palma, mixtaâ€¦)'),
       ],
       initial: actual.toMap(),
       edit: true);

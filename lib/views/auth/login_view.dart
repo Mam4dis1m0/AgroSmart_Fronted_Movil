@@ -143,14 +143,30 @@ class _LoginScreenState extends State<LoginScreen> {
         previo = d;
         continue;
       }
-      final ok = await run(context, () => authService.registrar(d),
-          ok: 'Cuenta creada. Ya puedes iniciar sesión.');
-      if (ok) {
+      try {
+        await authService.registrar(d);
+        if (!mounted) return;
         _email.text = s(d['email']);
         _pass.clear();
+        snack(context, 'Cuenta creada. Ya puedes iniciar sesión.');
         return;
+      } catch (e) {
+        previo = d;
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('No se pudo crear la cuenta'),
+            content: SelectableText(Api.errorMsg(e)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Volver al formulario'),
+              ),
+            ],
+          ),
+        );
       }
-      previo = d;
     }
   }
 

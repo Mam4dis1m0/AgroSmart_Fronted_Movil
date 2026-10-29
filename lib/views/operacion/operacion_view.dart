@@ -13,9 +13,9 @@ class OperacionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TabsPage(initialIndex: initialIndex, tabs: {
-      'Agenda': const AgendaPage(),
       'Tareas': const TareasPage(),
       'Insumos': const InsumosTab(),
+      'Agenda': const AgendaPage(),
       if (esAdmin) 'Plantillas': const PlantillasTab(),
     });
   }
