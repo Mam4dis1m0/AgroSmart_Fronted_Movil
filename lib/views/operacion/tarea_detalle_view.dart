@@ -108,6 +108,108 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
     );
   }
 
+  /// Miniatura de la foto elegida para completar la tarea, aún no enviada al servidor.
+  Widget _fotoPendiente(ImagenElegida pend) {
+    return GestureDetector(
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            InteractiveViewer(child: Image.memory(pend.bytes, fit: BoxFit.contain)),
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('Foto elegida, pendiente de enviar', style: AgroText.muted),
+            ),
+          ]),
+        ),
+      ),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.memory(pend.bytes, width: 96, height: 96, fit: BoxFit.cover),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              color: Colors.black.withValues(alpha: 0.55),
+              child: const Text(
+                'Pendiente',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 10),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: () => setState(() => EvidenciaPendiente.quitar(widget.idtarea)),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
+                child: const Icon(Icons.close, size: 14, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Miniatura de una foto ya subida; el admin o quien la subió pueden eliminarla.
+  Widget _fotoSubida(Map<String, dynamic> e) {
+    final mio = esAdmin || n(e['idusuario']) == n(session.usuario?['id']);
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: () => _verFoto(e),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(
+              s(e['url']),
+              width: 96,
+              height: 96,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 96,
+                height: 96,
+                color: AgroColors.neutralBg,
+                child: const Icon(Icons.broken_image_outlined),
+              ),
+            ),
+          ),
+        ),
+        if (mio)
+          Positioned(
+            top: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: () => _eliminarFoto(e),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
+                child: const Icon(Icons.close, size: 14, color: Colors.white),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _eliminarFoto(Map<String, dynamic> e) async {
+    if (!await confirmar(context, 'La foto se quitará de esta tarea.', titulo: '¿Eliminar la foto?', ok: 'Eliminar', destructivo: true)) {
+      return;
+    }
+    if (!mounted) return;
+    if (await run(context, () => operacionService.eliminarEvidencia(widget.idtarea, (e['idevidencia'] as num).toInt()), ok: 'Foto eliminada')) {
+      _recargar();
+    }
+  }
+
   /// Un toque confirma la cantidad propuesta; si falta el insumo o la cantidad, o se quiere cambiar, se edita antes.
   Future<void> _usarSugerido(Map<String, dynamic> sug, {bool editar = false}) async {
     var datos = <String, dynamic>{'idinsumo': sug['idinsumo'], 'cantidadusada': sug['cantidad']};
@@ -192,6 +294,7 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
             if (snap.hasError) return AgroError(message: Api.errorMsg(snap.error!), onRetry: _recargar);
             final insumos = snap.data!.$2;
             final asig = t!.asignacion;
+            final pend = EvidenciaPendiente.de(widget.idtarea);
             final costoInsumos = insumos.fold<double>(0, (a, d) {
               final i = d['idinsumo'];
               return a + n(d['cantidadusada']) * n(i is Map ? i['costounitario'] : 0);
@@ -279,33 +382,23 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                 const SizedBox(height: 14),
                 AgroSectionHeader('Evidencia', action: 'Agregar foto', onAction: _agregarFoto),
                 const SizedBox(height: 8),
-                if (_evidencias.isEmpty)
+                if (_evidencias.isEmpty && pend == null)
                   const AgroEmpty(icon: Icons.photo_library_outlined, message: 'Aún no hay fotos de esta tarea')
                 else
                   SizedBox(
                     height: 96,
-                    child: ListView.separated(
+                    child: ListView(
                       scrollDirection: Axis.horizontal,
-                      itemCount: _evidencias.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (_, i) => GestureDetector(
-                        onTap: () => _verFoto(_evidencias[i]),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            s(_evidencias[i]['url']),
-                            width: 96,
-                            height: 96,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 96,
-                              height: 96,
-                              color: AgroColors.neutralBg,
-                              child: const Icon(Icons.broken_image_outlined),
-                            ),
-                          ),
-                        ),
-                      ),
+                      children: [
+                        if (pend != null) ...[
+                          _fotoPendiente(pend),
+                          const SizedBox(width: 8),
+                        ],
+                        for (var i = 0; i < _evidencias.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 8),
+                          _fotoSubida(_evidencias[i]),
+                        ],
+                      ],
                     ),
                   ),
                 const SizedBox(height: 14),
@@ -381,7 +474,8 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                   const SizedBox(height: 20),
                   FilledButton.icon(
                     onPressed: () async {
-                      if (await AccionesTarea.completarConFoto(context, t)) _recargar();
+                      await AccionesTarea.completarConFoto(context, t);
+                      if (mounted) _recargar();
                     },
                     icon: const Icon(Icons.photo_camera),
                     label: const Text('Completar con foto de evidencia'),

@@ -251,6 +251,10 @@ class OperacionService {
     }
   }
 
+  /// Elimina una foto de evidencia ya subida (admin: cualquiera; empleado: solo la suya).
+  Future<void> eliminarEvidencia(int idtarea, int idevidencia) =>
+      Api.i.dio.delete('/api/v1/tareas/$idtarea/evidencias/$idevidencia');
+
   /// Insumos que suele gastar esta labor, con cantidad propuesta (plantilla o historial de la finca).
   Future<List<Map<String, dynamic>>> insumosSugeridos(int idtarea) => _list('/api/v1/tareas/$idtarea/insumos-sugeridos');
 

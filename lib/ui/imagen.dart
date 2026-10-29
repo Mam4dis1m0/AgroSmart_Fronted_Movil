@@ -12,6 +12,14 @@ class ImagenElegida {
   String get dataUrl => 'data:$mime;base64,${base64Encode(bytes)}';
 }
 
+/// Fotos elegidas para completar tareas, aún no enviadas (en memoria, por sesión).
+class EvidenciaPendiente {
+  static final Map<int, ImagenElegida> _fotos = {};
+  static ImagenElegida? de(int idtarea) => _fotos[idtarea];
+  static void poner(int idtarea, ImagenElegida img) => _fotos[idtarea] = img;
+  static void quitar(int idtarea) => _fotos.remove(idtarea);
+}
+
 String _mime(String nombre) {
   final n = nombre.toLowerCase();
   if (n.endsWith('.png')) return 'image/png';

@@ -75,6 +75,9 @@ class Tarea extends AgroModel {
   bool get completada => estado.toLowerCase().startsWith('completad');
   bool get pendiente => estado.toLowerCase().startsWith('pendiente');
 
+  /// Fotos de evidencia ya subidas a la tarea (las trae el listado de tareas).
+  int get evidencias => (raw['evidencias'] as num?)?.toInt() ?? 0;
+
   /// Forma plana para el formulario de edición.
   Map<String, dynamic> toForm() => {...raw, 'idcultivo': idcultivo};
 }
