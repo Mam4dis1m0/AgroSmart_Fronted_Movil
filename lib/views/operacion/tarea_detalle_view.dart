@@ -279,7 +279,6 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                           ]),
                           const SizedBox(height: 8),
                           InfoRow('Asignada el', fecha(asig['fechaasignacion'])),
-                          if (n(asig['pagoacordado']) > 0) InfoRow('Pago acordado', money(asig['pagoacordado'])),
                           if (t.inicioReal != null) InfoRow('Inicio real', fecha(t.inicioReal, hora: true)),
                           if (asig['fechafin'] != null && t.inicioReal != null)
                             InfoRow('Duración', _duracion(DateTime.parse('${asig['fechafin']}').toLocal().difference(t.inicioReal!))),
@@ -341,7 +340,9 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                         title: Text(s(sug['nombre']), style: AgroText.title),
                         subtitle: Text(
                           juntar([
-                            sug['cantidad'] == null ? 'Indica la cantidad' : 'Sugerido: ${cant(sug['cantidad'])} ${s(sug['unidad'])}'.trim(),
+                            sug['cantidad'] == null
+                                ? 'Indica la cantidad'
+                                : 'Sugerido: ${cant(sug['cantidad'])} ${s(sug['unidad'])}${sug['hectareas'] != null ? ' (${cant(sug['hectareas'])} ha)' : ''}'.trim(),
                             if (sug['stockactual'] != null) 'Disponible ${cant(sug['stockactual'])}',
                             if (sug['idinsumo'] == null) 'Elige un insumo',
                           ]),
@@ -392,6 +393,19 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                       if (n(_costos!['estimado']) > 0) InfoRow('Estimado', money(_costos!['estimado'])),
                       InfoRow('Insumos', money(_costos!['insumos'])),
                       InfoRow('Mano de obra', money(_costos!['manoObra'])),
+                      if (n(_costos!['horas']) > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              n(_costos!['costoHora']) > 0
+                                  ? '${cant(_costos!['horas'])} h trabajadas × ${money(_costos!['costoHora'])} por hora'
+                                  : 'Configura el pago de tus empleados en Equipo para calcular la mano de obra',
+                              style: AgroText.muted,
+                            ),
+                          ),
+                        ),
                       if (n(_costos!['transporte']) > 0) InfoRow('Transporte', money(_costos!['transporte'])),
                       InfoRow(t.completada ? 'Costo real' : 'Costo hasta ahora', money(_costos!['total']), strong: true),
                     ]),

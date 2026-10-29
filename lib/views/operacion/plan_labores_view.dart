@@ -55,7 +55,7 @@ class _PlanLaboresPageState extends State<PlanLaboresPage> {
     final costo = n(i['costoestimado']);
     return juntar([
       if (i['fecha'] != null) fecha(i['fecha']),
-      if (horas > 0) '${cant(horas)} h',
+      if (horas > 0) '${cant(horas)} h${i['hectareas'] != null ? ' (${cant(i['horasPorHectarea'])} h/ha)' : ''}',
       if (personas > 1) '$personas personas',
       if (costo > 0) 'aprox. ${money(costo)}',
     ]);
@@ -91,6 +91,21 @@ class _PlanLaboresPageState extends State<PlanLaboresPage> {
                     style: AgroText.muted,
                   ),
                 ),
+                const SizedBox(height: 8),
+                AgroCard(
+                  child: Row(children: [
+                    const Icon(Icons.square_foot, color: AgroColors.primary, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        plan['hectareas'] != null
+                            ? 'Lote de ${cant(plan['hectareas'])} ha: las horas y cantidades de cada labor se calculan por hectárea.'
+                            : 'El lote no tiene área registrada: se muestran los valores para 1 hectárea. Registra las hectáreas del lote para ajustarlos.',
+                        style: AgroText.muted,
+                      ),
+                    ),
+                  ]),
+                ),
                 const SizedBox(height: 12),
                 for (final i in items)
                   Padding(
@@ -111,6 +126,8 @@ class _PlanLaboresPageState extends State<PlanLaboresPage> {
                           if (_detalle(i).isNotEmpty) Text(_detalle(i), style: AgroText.muted),
                           if (i['esrecurrente'] == true)
                             Text('Se repite cada ${n(i['frecuenciadias']).toInt()} días', style: AgroText.muted),
+                          if (i['ajustada'] == true)
+                            const Text('Cultivo ya establecido: se programó la próxima repetición', style: AgroText.muted),
                           if (i['omitida'] != null) Text(s(i['omitida']), style: AgroText.muted),
                           const SizedBox(height: 4),
                           Wrap(spacing: 6, children: [

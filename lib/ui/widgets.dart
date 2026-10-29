@@ -130,7 +130,8 @@ enum FT {
   select,
   selectOther,
   phone,
-  image
+  image,
+  time
 }
 
 const _otherSelectValue = '__agro_otro__';
@@ -251,7 +252,9 @@ class _FormSheetState extends State<_FormSheet> {
         _ctrl[f.key] = TextEditingController(
           text: f.type == FT.date
               ? d10(v)
-              : (f.type == FT.number && v != null ? _numTxt(v) : s(v)),
+              : f.type == FT.time
+                  ? (s(v).length >= 5 ? s(v).substring(0, 5) : s(v))
+                  : (f.type == FT.number && v != null ? _numTxt(v) : s(v)),
         );
         if (f.type == FT.password) _hide[f.key] = true;
       }
@@ -452,6 +455,30 @@ class _FormSheetState extends State<_FormSheet> {
               lastDate: DateTime(2100),
             );
             if (p != null && mounted) setState(() => ctrl.text = ymd(p));
+          },
+        );
+      case FT.time:
+        final ctrl = _ctrl[f.key]!;
+        return TextFormField(
+          controller: ctrl,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: f.label,
+            helperText: f.helper,
+            suffixIcon: const Icon(Icons.access_time),
+          ),
+          validator: (v) => _validar(f, v),
+          onTap: () async {
+            final partes = ctrl.text.split(':');
+            final inicial = TimeOfDay(
+              hour: int.tryParse(partes.first) ?? 7,
+              minute: partes.length > 1 ? int.tryParse(partes[1]) ?? 0 : 0,
+            );
+            final p = await showTimePicker(context: context, initialTime: inicial);
+            if (p != null && mounted) {
+              setState(() => ctrl.text =
+                  '${p.hour.toString().padLeft(2, '0')}:${p.minute.toString().padLeft(2, '0')}');
+            }
           },
         );
       default:

@@ -46,7 +46,7 @@ class FincaService {
     await Api.i.dio.delete('/api/v1/fincas/activa/miembros/$idusuario');
   }
 
-  /// GET /api/v1/empleados/{idusuario} -> tarifas (montoporhora, montoporjornal)
+  /// GET /api/v1/empleados/{idusuario} -> pago acordado (tipopago: dia | semana | mes, valorpago)
   Future<Map<String, dynamic>?> empleado(int idusuario) async {
     try {
       final r = await Api.i.dio.get('/api/v1/empleados/$idusuario');
@@ -57,7 +57,7 @@ class FincaService {
   }
 
   /// PUT /api/v1/empleados/{idusuario}
-  Future<void> actualizarTarifas(int idusuario, Map<String, dynamic> data) async {
+  Future<void> actualizarPago(int idusuario, Map<String, dynamic> data) async {
     await Api.i.dio.put('/api/v1/empleados/$idusuario', data: data);
   }
 }

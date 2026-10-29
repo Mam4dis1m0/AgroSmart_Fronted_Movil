@@ -4,21 +4,30 @@ import 'package:agrosmart_proto/providers/session_provider.dart';
 import 'package:agrosmart_proto/theme.dart';
 import 'package:agrosmart_proto/ui/design.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
+import 'jornada_card.dart';
 
-/// Equipo de la finca: miembros, alta de empleados, tarifas y accesos (admin).
+/// Equipo de la finca: miembros, alta de empleados, pago acordado y accesos (admin).
+/// Cómo se le paga a un empleado: se acuerda por día, semana o mes (no por tarea ni por hora).
+const camposPago = [
+  FieldDef('tipopago', 'Cómo se le paga', type: FT.select, required: true, options: [
+    MapEntry('dia', 'Por día'),
+    MapEntry('semana', 'Por semana'),
+    MapEntry('mes', 'Por mes'),
+  ]),
+  FieldDef('valorpago', 'Valor acordado (COP)', type: FT.number, required: true, min: 0,
+      helper: 'Lo que se le paga por cada día, semana o mes, según lo elegido'),
+];
+
 class EquipoPage extends StatelessWidget {
   const EquipoPage({super.key});
 
-  Future<void> _tarifas(BuildContext c, Map<String, dynamic> m, VoidCallback reload) async {
+  Future<void> _pago(BuildContext c, Map<String, dynamic> m, VoidCallback reload) async {
     final id = (m['idusuario'] as num).toInt();
     final actual = await fincaService.empleado(id) ?? const {};
     if (!c.mounted) return;
-    final d = await showForm(c, 'Tarifas de ${s(m['primernombre'])}', const [
-      FieldDef('montoporhora', 'Pago por hora (COP)', type: FT.number, min: 0),
-      FieldDef('montoporjornal', 'Pago por jornal (COP)', type: FT.number, min: 0),
-    ], initial: actual, edit: true);
+    final d = await showForm(c, 'Pago de ${s(m['primernombre'])}', camposPago, initial: actual, edit: true);
     if (d == null || !c.mounted) return;
-    if (await run(c, () => fincaService.actualizarTarifas(id, d), ok: 'Tarifas actualizadas')) reload();
+    if (await run(c, () => fincaService.actualizarPago(id, d), ok: 'Pago actualizado')) reload();
   }
 
   Future<void> _activo(BuildContext c, Map<String, dynamic> m, bool v, VoidCallback reload) async {
@@ -48,12 +57,13 @@ class EquipoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListPage(
+      header: esAdmin ? const JornadaCard() : null,
       loader: () => fincaService.miembros().then((l) => l.map((e) => e.toMap()).toList()),
       empty: 'Aún no hay miembros en la finca',
       emptyIcon: Icons.group_outlined,
       addLabel: 'Nuevo empleado',
       onAdd: (reload) async {
-        final d = await showForm(context, 'Registrar empleado', const [
+        final d = await showForm(context, 'Registrar empleado', [
           FieldDef('primernombre', 'Primer nombre', required: true, minLength: 2),
           FieldDef('primerapellido', 'Primer apellido', required: true, minLength: 2),
           FieldDef('cedula', 'Cédula', required: true, minLength: 5),
@@ -61,9 +71,8 @@ class EquipoPage extends StatelessWidget {
           FieldDef('contrasena', 'Contraseña inicial', type: FT.password, required: true, minLength: 6,
               helper: 'El empleado la usará para ingresar'),
           FieldDef('telefono', 'Teléfono', type: FT.phone),
-          FieldDef('montoporhora', 'Pago por hora (COP)', type: FT.number, min: 0),
-          FieldDef('montoporjornal', 'Pago por jornal (COP)', type: FT.number, min: 0),
-        ], okLabel: 'Registrar');
+          ...camposPago,
+        ], okLabel: 'Registrar', initial: const {'tipopago': 'dia'});
         if (d == null || !context.mounted) return;
         if (await run(context, () => fincaService.registrarEmpleado(d), ok: 'Empleado registrado')) reload();
       },
@@ -89,7 +98,7 @@ class EquipoPage extends StatelessWidget {
                     child: Switch(value: activo, onChanged: (v) => _activo(c, m, v, reload)),
                   ),
                   RowMenu(item: m, reload: reload, actions: [
-                    if (empleado) RowAction('Tarifas de pago', (ctx, it, r) => _tarifas(ctx, it, r), icon: Icons.payments_outlined),
+                    if (empleado) RowAction('Pago acordado', (ctx, it, r) => _pago(ctx, it, r), icon: Icons.payments_outlined),
                     RowAction('Quitar de la finca', (ctx, it, r) => _quitar(ctx, it, r), icon: Icons.person_remove_outlined, destructive: true),
                   ]),
                 ]),

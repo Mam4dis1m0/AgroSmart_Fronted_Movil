@@ -6,7 +6,7 @@ import 'package:agrosmart_proto/ui/design.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
 import 'package:agrosmart_proto/views/plan/plan_view.dart';
 
-/// Nómina (Premium): liquidación de jornales y horas de las tareas completadas.
+/// Nómina (Premium): pago de cada empleado según lo acordado (por día, semana o mes), no por horas.
 class NominaPage extends StatefulWidget {
   const NominaPage({super.key});
   @override
@@ -84,16 +84,37 @@ class NominaDetallePage extends StatefulWidget {
 class _NominaDetallePageState extends State<NominaDetallePage> {
   late Future<Map<String, dynamic>> _f = nominaService.detalle(widget.idnomina);
 
-  void _recargar() => setState(() => _f = nominaService.detalle(widget.idnomina));
+  void _recargar() {
+    if (!mounted) return;
+    setState(() {
+      _f = nominaService.detalle(widget.idnomina);
+    });
+  }
 
-  Future<void> _deducciones(Map<String, dynamic> d) async {
-    final r = await showForm(context, 'Deducciones de ${s(d['primernombre'])}', const [
-      FieldDef('deducciones', 'Deducciones (COP)', type: FT.number, required: true, min: 0,
+  static const _unidad = {'dia': 'Días trabajados', 'semana': 'Semanas', 'mes': 'Meses'};
+
+  Future<void> _ajustar(Map<String, dynamic> d) async {
+    final tipo = s(d['tipopago']);
+    final r = await showForm(context, 'Pago de ${s(d['primernombre'])}', [
+      // Las líneas anteriores (por horas/jornales) solo permiten ajustar deducciones
+      if (tipo.isNotEmpty)
+        FieldDef('unidades', _unidad[tipo] ?? 'Cantidad', type: FT.number, required: true, min: 0,
+            helper: tipo == 'dia'
+                ? 'Se contaron solos los días en que inició o completó una tarea. Corrígelo si hace falta.'
+                : 'Períodos pagados según lo acordado'),
+      const FieldDef('deducciones', 'Deducciones (COP)', type: FT.number, required: true, min: 0,
           helper: 'Préstamos, anticipos, seguridad social…'),
-    ], initial: {'deducciones': d['deducciones']}, edit: true);
+    ], initial: {'unidades': d['jornadas'], 'deducciones': d['deducciones']}, edit: true);
     if (r == null || !mounted) return;
-    if (await run(context, () => nominaService.ajustarDeducciones(d['idnominadetalle'], r['deducciones'] as num),
-        ok: 'Deducciones actualizadas')) {
+    final id = d['idnominadetalle'];
+    final cambioUnidades = tipo.isNotEmpty && n(r['unidades']) != n(d['jornadas']);
+    final cambioDeducciones = n(r['deducciones']) != n(d['deducciones']);
+    if (!cambioUnidades && !cambioDeducciones) return;
+    if (await run(context, () async {
+      // Primero los días: el bruto nuevo puede ser menor o mayor que el anterior y las deducciones deben caber en él
+      if (cambioUnidades) await nominaService.ajustarUnidades(id, r['unidades'] as num);
+      if (cambioDeducciones) await nominaService.ajustarDeducciones(id, r['deducciones'] as num);
+    }, ok: 'Pago actualizado')) {
       _recargar();
     }
   }
@@ -177,19 +198,19 @@ class _NominaDetallePageState extends State<NominaDetallePage> {
                     if (est == 'BORRADOR')
                       const Padding(
                         padding: EdgeInsets.only(top: 8),
-                        child: Text('Toca un empleado para ajustar sus deducciones antes de confirmar.', style: AgroText.muted),
+                        child: Text('Toca un empleado para corregir sus días y ajustar sus deducciones antes de confirmar.', style: AgroText.muted),
                       ),
                   ]),
                 ),
                 const SizedBox(height: 14),
                 const AgroSectionHeader('Empleados'),
                 const SizedBox(height: 8),
-                if (det.isEmpty) const AgroEmpty(message: 'No hubo tareas completadas en este periodo'),
+                if (det.isEmpty) const AgroEmpty(message: 'Ningún empleado con pago configurado trabajó en este período'),
                 for (final d in det)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: AgroCard(
-                      onTap: est == 'BORRADOR' ? () => _deducciones(d) : null,
+                      onTap: est == 'BORRADOR' ? () => _ajustar(d) : null,
                       padding: const EdgeInsets.all(14),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Row(children: [
@@ -200,8 +221,12 @@ class _NominaDetallePageState extends State<NominaDetallePage> {
                           if (est == 'BORRADOR') const Icon(Icons.edit_outlined, size: 18, color: AgroColors.textMuted),
                         ]),
                         const SizedBox(height: 8),
-                        InfoRow('Horas', '${cant(d['horas'])} × ${money(d['valorhora'])}'),
-                        InfoRow('Jornales', '${cant(d['jornadas'])} × ${money(d['valorjornal'])}'),
+                        if (s(d['tipopago']).isNotEmpty)
+                          InfoRow(_unidad[s(d['tipopago'])] ?? 'Cantidad', '${cant(d['jornadas'])} × ${money(d['valorjornal'])}')
+                        else ...[
+                          InfoRow('Horas', '${cant(d['horas'])} × ${money(d['valorhora'])}'),
+                          InfoRow('Jornales', '${cant(d['jornadas'])} × ${money(d['valorjornal'])}'),
+                        ],
                         InfoRow('Bruto', money(d['bruto'])),
                         InfoRow('Deducciones', '- ${money(d['deducciones'])}'),
                       ]),

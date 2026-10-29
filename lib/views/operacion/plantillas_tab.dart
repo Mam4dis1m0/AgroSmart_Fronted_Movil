@@ -16,7 +16,8 @@ class PlantillasTab extends StatelessWidget {
         const FieldDef('etapa', 'Etapa (siembra, crecimiento, cosecha…)'),
         FieldDef('base', 'Se cuenta desde', type: FT.select, options: [for (final e in _bases.entries) MapEntry(e.key, e.value)]),
         const FieldDef('diasoffset', 'Días desde esa fecha (negativo = antes)', type: FT.number),
-        const FieldDef('horasestimadas', 'Horas estimadas', type: FT.number, min: 0),
+        const FieldDef('horasestimadas', 'Horas por hectárea (por persona)', type: FT.number, min: 0,
+            helper: 'Se multiplican por las hectáreas del lote del cultivo'),
         const FieldDef('numpersonas', 'Personas necesarias', type: FT.number, min: 1),
         const FieldDef('prioridad', 'Prioridad', type: FT.select, options: [
           MapEntry('Alta', 'Alta'), MapEntry('Media', 'Media'), MapEntry('Baja', 'Baja'),
@@ -24,9 +25,6 @@ class PlantillasTab extends StatelessWidget {
         const FieldDef('esrecurrente', '¿Se repite?', type: FT.select, options: [MapEntry(true, 'Sí'), MapEntry(false, 'No')]),
         const FieldDef('frecuenciadias', 'Repetir cada (días)', type: FT.number, min: 1),
         const FieldDef('diasfin', 'Repetir hasta (días desde esa fecha)', type: FT.number, min: 0),
-        const FieldDef('modalidadpago', 'Cómo se paga', type: FT.select, options: [
-          MapEntry('tiempo', 'Por tiempo trabajado'), MapEntry('fijo', 'Valor acordado (destajo)'),
-        ]),
         const FieldDef('activa', 'Estado', type: FT.select, options: [MapEntry(true, 'Activa'), MapEntry(false, 'Desactivada')]),
       ];
 
@@ -72,7 +70,7 @@ class PlantillasTab extends StatelessWidget {
             juntar([
               s(p['categoria']).replaceAll('_', ' '),
               '${dias >= 0 ? '+' : ''}$dias d desde ${(_bases[s(p['base'])] ?? s(p['base'])).toLowerCase()}',
-              if (n(p['horasestimadas']) > 0) '${cant(p['horasestimadas'])} h',
+              if (n(p['horasestimadas']) > 0) '${cant(p['horasestimadas'])} h/ha',
               if (n(p['numpersonas']) > 1) '${n(p['numpersonas']).toInt()} personas',
               if (recurrente) 'cada ${n(p['frecuenciadias']).toInt()} d',
             ]),
