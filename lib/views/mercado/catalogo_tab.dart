@@ -30,6 +30,7 @@ class _CatalogoTabState extends State<CatalogoTab>
   bool _cargando = false;
   bool _hayMas = true;
   Object? _error;
+  int _generacion = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -53,15 +54,20 @@ class _CatalogoTabState extends State<CatalogoTab>
     super.dispose();
   }
 
-  Future<void> _reiniciar() async {
-    _items.clear();
-    _hayMas = true;
-    _error = null;
-    await _cargar(forzar: true);
+  Future<void> _reiniciar() {
+    _generacion++;
+    setState(() {
+      _items.clear();
+      _hayMas = true;
+      _error = null;
+      _cargando = false;
+    });
+    return _cargar(forzar: true);
   }
 
   Future<void> _cargar({bool forzar = false}) async {
     if ((_cargando && !forzar) || !_hayMas) return;
+    final generacion = _generacion;
     setState(() => _cargando = true);
     try {
       final l = await marketplaceService.listados(
@@ -73,16 +79,18 @@ class _CatalogoTabState extends State<CatalogoTab>
         limit: _pagina,
         offset: _items.length,
       );
-      if (!mounted) return;
+      if (!mounted || generacion != _generacion) return;
       setState(() {
         _items.addAll(l);
         _hayMas = l.length >= _pagina;
         _error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e);
+      if (mounted && generacion == _generacion) setState(() => _error = e);
     } finally {
-      if (mounted) setState(() => _cargando = false);
+      if (mounted && generacion == _generacion) {
+        setState(() => _cargando = false);
+      }
     }
   }
 
@@ -113,188 +121,219 @@ class _CatalogoTabState extends State<CatalogoTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Container(
-      color: AgroColors.page,
-      child: Column(children: [
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _reiniciar,
-            child: CustomScrollView(
-              controller: _scroll,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                    child: _MarketplaceHero(
-                        onPublish: esAdmin
-                            ? () =>
-                                DefaultTabController.of(context).animateTo(1)
-                            : null),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                    child: Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      elevation: 1,
-                      shadowColor: AgroColors.forest.withValues(alpha: 0.08),
-                      child: TextField(
-                        controller: _q,
-                        textInputAction: TextInputAction.search,
-                        onSubmitted: (v) {
-                          _query = v.trim();
-                          _reiniciar();
-                        },
-                        decoration: InputDecoration(
-                          hintText: '¿Qué producto estás buscando?',
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          suffixIcon: _q.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: 'Limpiar búsqueda',
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _q.clear();
-                                    _query = '';
-                                    _reiniciar();
-                                  },
-                                ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
+    return Stack(
+      children: [
+        Container(
+          color: AgroColors.page,
+          child: Column(children: [
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _reiniciar,
+                child: CustomScrollView(
+                  controller: _scroll,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                        child: _MarketplaceHero(
+                            onPublish: esAdmin
+                                ? () => DefaultTabController.of(context)
+                                    .animateTo(1)
+                                : null),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: Material(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          elevation: 1,
+                          shadowColor:
+                              AgroColors.forest.withValues(alpha: 0.08),
+                          child: TextField(
+                            controller: _q,
+                            textInputAction: TextInputAction.search,
+                            onSubmitted: (v) {
+                              _query = v.trim();
+                              _reiniciar();
+                            },
+                            decoration: InputDecoration(
+                              hintText: '¿Qué producto estás buscando?',
+                              prefixIcon: const Icon(Icons.search_rounded),
+                              suffixIcon: _q.text.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: 'Limpiar búsqueda',
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
+                                        _q.clear();
+                                        _query = '';
+                                        _reiniciar();
+                                      },
+                                    ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                    color: AgroColors.slateBorder),
+                              ),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                            ),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide:
-                                const BorderSide(color: AgroColors.slateBorder),
-                          ),
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 42,
-                    child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        children: [
-                          if (session.esComprador)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: FilterChip(
-                                avatar: Icon(Icons.near_me_rounded,
-                                    size: 16,
-                                    color: _cerca
-                                        ? Colors.white
-                                        : AgroColors.primary),
-                                label: Text(
-                                    _cerca ? 'A $_radio km' : 'Cerca de mí'),
-                                selected: _cerca,
-                                showCheckmark: false,
-                                onSelected: (_) => _toggleCerca(),
-                              ),
-                            ),
-                          for (final c in kCategorias)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                avatar: Icon(
-                                  _iconoCategoria(c),
-                                  size: 15,
-                                  color: _categoria == c
-                                      ? Colors.white
-                                      : AgroColors.primary,
-                                ),
-                                label: Text(c),
-                                selected: _categoria == c,
-                                onSelected: (_) {
-                                  setState(() =>
-                                      _categoria = _categoria == c ? null : c);
-                                  _reiniciar();
-                                },
-                              ),
-                            ),
-                        ]),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 19, 16, 11),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 42,
+                        child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             children: [
-                              Text(
-                                _query.isEmpty && _categoria == null
-                                    ? 'Productos frescos'
-                                    : 'Resultados para ti',
-                                style: const TextStyle(
-                                  color: AgroColors.forest,
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w800,
+                              if (session.esComprador)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: FilterChip(
+                                    avatar: Icon(Icons.near_me_rounded,
+                                        size: 16,
+                                        color: _cerca
+                                            ? Colors.white
+                                            : AgroColors.primary),
+                                    label: Text(_cerca
+                                        ? 'A $_radio km'
+                                        : 'Cerca de mí'),
+                                    selected: _cerca,
+                                    showCheckmark: false,
+                                    onSelected: (_) => _toggleCerca(),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _items.isEmpty
-                                    ? 'Directo de las fincas de la región'
-                                    : '${_items.length} productos para descubrir',
-                                style: const TextStyle(
-                                  color: AgroColors.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                              for (final c in ['Todo', ...kCategorias])
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ChoiceChip(
+                                    avatar: Icon(
+                                      c == 'Todo'
+                                          ? Icons.storefront_outlined
+                                          : _iconoCategoria(c),
+                                      size: 15,
+                                      color: (_categoria ==
+                                              (c == 'Todo' ? null : c))
+                                          ? Colors.white
+                                          : AgroColors.primary,
+                                    ),
+                                    label: Text(c),
+                                    selected:
+                                        _categoria == (c == 'Todo' ? null : c),
+                                    onSelected: (_) {
+                                      if (c == 'Todo') {
+                                        _query = '';
+                                        _q.clear();
+                                        setState(() {
+                                          _categoria = null;
+                                          _cerca = false;
+                                        });
+                                      } else {
+                                        setState(() => _categoria =
+                                            _categoria == c ? null : c);
+                                      }
+                                      _reiniciar();
+                                    },
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: AgroColors.surfaceLime,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.eco_rounded,
-                                  size: 15, color: AgroColors.primary),
-                              SizedBox(width: 4),
-                              Text(
-                                'Compra local',
-                                style: TextStyle(
-                                    color: AgroColors.primary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                            ]),
+                      ),
                     ),
-                  ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 19, 16, 11),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _query.isEmpty && _categoria == null
+                                        ? 'Productos frescos'
+                                        : 'Resultados para ti',
+                                    style: const TextStyle(
+                                      color: AgroColors.forest,
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _items.isEmpty
+                                        ? 'Directo de las fincas de la región'
+                                        : '${_items.length} productos para descubrir',
+                                    style: const TextStyle(
+                                      color: AgroColors.textMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: AgroColors.surfaceLime,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.eco_rounded,
+                                      size: 15, color: AgroColors.primary),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Compra local',
+                                    style: TextStyle(
+                                        color: AgroColors.primary,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_cargando && _items.isNotEmpty)
+                      const SliverToBoxAdapter(
+                          child: LinearProgressIndicator(minHeight: 2)),
+                    ..._catalogoSlivers(),
+                  ],
                 ),
-                if (_cargando && _items.isNotEmpty)
-                  const SliverToBoxAdapter(
-                      child: LinearProgressIndicator(minHeight: 2)),
-                ..._catalogoSlivers(),
-              ],
+              ),
+            ),
+          ]),
+        ),
+        if (session.esComprador || esAdmin)
+          Positioned(
+            right: 16,
+            bottom: 20,
+            child: FloatingActionButton.extended(
+              heroTag: 'mercado-carrito',
+              icon: const Icon(Icons.shopping_cart_outlined),
+              label: const Text('Carrito'),
+              onPressed: () => DefaultTabController.of(context)
+                  .animateTo(mercadoCarritoTabIndex),
             ),
           ),
-        ),
-      ]),
+      ],
     );
   }
 

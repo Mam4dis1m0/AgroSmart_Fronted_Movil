@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
 import 'package:agrosmart_proto/providers/session_provider.dart';
@@ -6,6 +7,7 @@ import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/services/mensajeria_service.dart';
 import 'package:agrosmart_proto/services/socket_service.dart';
 import 'package:agrosmart_proto/theme.dart';
+import 'package:agrosmart_proto/ui/imagen.dart';
 import 'package:agrosmart_proto/views/auth/login_view.dart';
 import 'package:agrosmart_proto/views/finca/finca_picker_view.dart';
 import 'shell.dart';
@@ -50,14 +52,62 @@ class _RootState extends State<_Root> {
       if (session.esComprador || esAdmin) await mensajeriaService.precargar();
     });
     session.addListener(_alCambiarSesion);
-    session.restore();
+    session.restore().then((_) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        _recuperarEvidenciaPerdida();
+      }
+    });
+  }
+
+  Future<void> _recuperarEvidenciaPerdida() async {
+    try {
+      final perdida = await recuperarEvidenciaPerdida();
+      if (!mounted || perdida == null) return;
+      if (perdida.error != null) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text(perdida.error!)),
+        );
+        return;
+      }
+      final imagen = perdida.imagen;
+      if (imagen == null) return;
+      await Api.i.cola.agregarSubida(
+        scope: perdida.scope,
+        path: '/api/v1/tareas/${perdida.idtarea}/evidencias',
+        campos: const {},
+        campoArchivo: 'evidencia',
+        bytes: imagen.bytes,
+        nombreArchivo: imagen.nombre,
+      );
+      if (perdida.scope == Api.i.cacheScope && session.logged) {
+        await Api.i.sincronizar();
+      } else {
+        await Api.i.cola.cargar(Api.i.cacheScope);
+      }
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+              content: Text('Se recuperó la foto. Se guardará en la tarea.')),
+        );
+      }
+    } catch (error) {
+      debugPrint('No se pudo guardar la foto recuperada: $error');
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'No se pudo guardar la foto recuperada. Intenta enviarla de nuevo.')),
+        );
+      }
+    }
   }
 
   void _alCambiarSesion() {
     socketService.sync();
     if (session.logged) {
       Api.i.cola.cargar(Api.i.cacheScope);
-      smsService.iniciar(); // escucha SMS entrantes si el permiso ya fue concedido
+      smsService
+          .iniciar(); // escucha SMS entrantes si el permiso ya fue concedido
       Api.i.sincronizar();
       // Con internet, deja los chats listos para verlos después sin conexión.
       if (session.esComprador || esAdmin) mensajeriaService.precargar();
@@ -76,12 +126,15 @@ class _RootState extends State<_Root> {
       listenable: session,
       builder: (_, __) {
         if (!session.ready) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
         if (!session.logged) return const LoginScreen();
         if (session.necesitaFinca) return const FincaPickerScreen();
         // La key fuerza a reconstruir las pestañas al cambiar de finca o de rol.
-        return HomeShell(key: ValueKey('${session.usuario?['id']}_${session.idfinca}_${session.rol}'));
+        return HomeShell(
+            key: ValueKey(
+                '${session.usuario?['id']}_${session.idfinca}_${session.rol}'));
       },
     );
   }

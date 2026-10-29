@@ -105,6 +105,10 @@ void main() {
         expect(find.text('Fertilización'), findsWidgets);
         expect(find.text('Sugeridos para esta labor'), findsOneWidget);
         expect(find.text('Urea'), findsOneWidget);
+        expect(
+          find.text('Agregar foto'),
+          rol == 'empleado' ? findsOneWidget : findsNothing,
+        );
         await t.pump(const Duration(seconds: 2)); // el cronómetro avanza
         expect(t.takeException(), isNull);
       });

@@ -55,7 +55,8 @@ class _CronometroState extends State<_Cronometro> {
     final s = d.inSeconds < 0 ? 0 : d.inSeconds;
     String dos(int v) => v.toString().padLeft(2, '0');
     return Text('${dos(s ~/ 3600)}:${dos((s % 3600) ~/ 60)}:${dos(s % 60)}',
-        style: AgroText.title.copyWith(fontSize: 22, fontFeatures: const [FontFeature.tabularFigures()]));
+        style: AgroText.title.copyWith(
+            fontSize: 22, fontFeatures: const [FontFeature.tabularFigures()]));
   }
 }
 
@@ -70,10 +71,20 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
   Future<(Tarea, List<Map<String, dynamic>>)> _load() async {
     final r = await Future.wait<dynamic>([
       operacionService.tarea(widget.idtarea),
-      operacionService.insumosDeTarea(widget.idtarea).catchError((_) => <Map<String, dynamic>>[]),
-      operacionService.insumosSugeridos(widget.idtarea).catchError((_) => <Map<String, dynamic>>[]),
-      operacionService.evidencias(widget.idtarea).catchError((_) => <Map<String, dynamic>>[]),
-      if (esAdmin) operacionService.costosTarea(widget.idtarea).then<Map<String, dynamic>?>((m) => m).catchError((_) => null),
+      operacionService
+          .insumosDeTarea(widget.idtarea)
+          .catchError((_) => <Map<String, dynamic>>[]),
+      operacionService
+          .insumosSugeridos(widget.idtarea)
+          .catchError((_) => <Map<String, dynamic>>[]),
+      operacionService
+          .evidencias(widget.idtarea)
+          .catchError((_) => <Map<String, dynamic>>[]),
+      if (esAdmin)
+        operacionService
+            .costosTarea(widget.idtarea)
+            .then<Map<String, dynamic>?>((m) => m)
+            .catchError((_) => null),
     ]);
     _sugeridos = (r[2] as List).cast<Map<String, dynamic>>();
     _evidencias = (r[3] as List).cast<Map<String, dynamic>>();
@@ -82,19 +93,36 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
   }
 
   Future<void> _agregarFoto() async {
-    final img = await elegirImagen(context, maxWidth: 1400);
+    final img = await elegirImagen(
+      context,
+      maxWidth: 1400,
+      evidenciaTarea: widget.idtarea,
+      scope: Api.i.cacheScope,
+      maxBytes: 10 * 1024 * 1024,
+    );
     if (img == null || !mounted) return;
-    final obs = await showForm(context, 'Foto de la tarea', const [
-      FieldDef('observaciones', 'Nota (opcional)', type: FT.multiline),
-    ], okLabel: 'Guardar foto', edit: false);
+    final obs = await showForm(
+        context,
+        'Foto de la tarea',
+        const [
+          FieldDef('observaciones', 'Nota (opcional)', type: FT.multiline),
+        ],
+        okLabel: 'Guardar foto',
+        edit: false);
     if (obs == null || !mounted) return;
     var enCola = false;
     final ok = await run(context, () async {
       enCola = await operacionService.agregarEvidencia(widget.idtarea,
-          foto: img.bytes, nombreArchivo: img.nombre, observaciones: s(obs['observaciones']));
+          foto: img.bytes,
+          nombreArchivo: img.nombre,
+          observaciones: s(obs['observaciones']));
     });
     if (!ok || !mounted) return;
-    snack(context, enCola ? 'Sin conexión: la foto se subirá al volver la red' : 'Foto guardada');
+    snack(
+        context,
+        enCola
+            ? 'Sin conexión: la foto se subirá al volver la red'
+            : 'Foto guardada');
     _recargar();
   }
 
@@ -103,11 +131,16 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
       context: context,
       builder: (_) => Dialog(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          InteractiveViewer(child: Image.network(s(e['url']), fit: BoxFit.contain)),
+          InteractiveViewer(
+              child: Image.network(s(e['url']), fit: BoxFit.contain)),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Text(
-              juntar([fecha(e['fecha'], hora: true), s(e['autor']), s(e['observaciones'])]),
+              juntar([
+                fecha(e['fecha'], hora: true),
+                s(e['autor']),
+                s(e['observaciones'])
+              ]),
               style: AgroText.muted,
             ),
           ),
@@ -123,10 +156,12 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
         context: context,
         builder: (_) => Dialog(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            InteractiveViewer(child: Image.memory(pend.bytes, fit: BoxFit.contain)),
+            InteractiveViewer(
+                child: Image.memory(pend.bytes, fit: BoxFit.contain)),
             const Padding(
               padding: EdgeInsets.all(12),
-              child: Text('Foto elegida, pendiente de enviar', style: AgroText.muted),
+              child: Text('Foto elegida, pendiente de enviar',
+                  style: AgroText.muted),
             ),
           ]),
         ),
@@ -135,7 +170,8 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.memory(pend.bytes, width: 96, height: 96, fit: BoxFit.cover),
+            child: Image.memory(pend.bytes,
+                width: 96, height: 96, fit: BoxFit.cover),
           ),
           Positioned(
             left: 0,
@@ -155,10 +191,13 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
             top: 2,
             right: 2,
             child: GestureDetector(
-              onTap: () => setState(() => EvidenciaPendiente.quitar(widget.idtarea)),
+              onTap: () =>
+                  setState(() => EvidenciaPendiente.quitar(widget.idtarea)),
               child: Container(
                 padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    shape: BoxShape.circle),
                 child: const Icon(Icons.close, size: 14, color: Colors.white),
               ),
             ),
@@ -199,7 +238,9 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
               onTap: () => _eliminarFoto(e),
               child: Container(
                 padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    shape: BoxShape.circle),
                 child: const Icon(Icons.close, size: 14, color: Colors.white),
               ),
             ),
@@ -209,39 +250,77 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
   }
 
   Future<void> _eliminarFoto(Map<String, dynamic> e) async {
-    if (!await confirmar(context, 'La foto se quitará de esta tarea.', titulo: '¿Eliminar la foto?', ok: 'Eliminar', destructivo: true)) {
+    if (!await confirmar(context, 'La foto se quitará de esta tarea.',
+        titulo: '¿Eliminar la foto?', ok: 'Eliminar', destructivo: true)) {
       return;
     }
     if (!mounted) return;
-    if (await run(context, () => operacionService.eliminarEvidencia(widget.idtarea, (e['idevidencia'] as num).toInt()), ok: 'Foto eliminada')) {
+    if (await run(
+        context,
+        () => operacionService.eliminarEvidencia(
+            widget.idtarea, (e['idevidencia'] as num).toInt()),
+        ok: 'Foto eliminada')) {
       _recargar();
     }
   }
 
   /// Un toque confirma la cantidad propuesta; si falta el insumo o la cantidad, o se quiere cambiar, se edita antes.
-  Future<void> _usarSugerido(Map<String, dynamic> sug, {bool editar = false}) async {
-    var datos = <String, dynamic>{'idinsumo': sug['idinsumo'], 'cantidadusada': sug['cantidad']};
+  Future<void> _usarSugerido(Map<String, dynamic> sug,
+      {bool editar = false}) async {
+    var datos = <String, dynamic>{
+      'idinsumo': sug['idinsumo'],
+      'cantidadusada': sug['cantidad']
+    };
     if (editar || sug['idinsumo'] == null || sug['cantidad'] == null) {
-      final cands = [for (final c in (sug['candidatos'] as List? ?? const [])) (c as Map).cast<String, dynamic>()];
+      final cands = [
+        for (final c in (sug['candidatos'] as List? ?? const []))
+          (c as Map).cast<String, dynamic>()
+      ];
       List<MapEntry<dynamic, String>> opc;
       Map<dynamic, String> unidades;
       if (cands.isNotEmpty) {
-        opc = [for (final c in cands) MapEntry(c['idinsumo'], '${c['nombre']} (${cant(c['stockactual'])} ${s(c['unidadmedida'])} disp.)'.trim())];
-        unidades = {for (final c in cands) if (s(c['unidadmedida']).trim().isNotEmpty) c['idinsumo']: s(c['unidadmedida']).trim()};
+        opc = [
+          for (final c in cands)
+            MapEntry(
+                c['idinsumo'],
+                '${c['nombre']} (${cant(c['stockactual'])} ${s(c['unidadmedida'])} disp.)'
+                    .trim())
+        ];
+        unidades = {
+          for (final c in cands)
+            if (s(c['unidadmedida']).trim().isNotEmpty)
+              c['idinsumo']: s(c['unidadmedida']).trim()
+        };
       } else {
         final ins = await cargar(context, operacionService.insumosConUnidad);
         if (ins == null || !mounted) return;
         opc = ins.opciones;
         unidades = ins.unidades;
       }
-      final d = await showForm(context, 'Insumo usado', [
-        FieldDef('idinsumo', 'Insumo', type: FT.select, required: true, options: opc),
-        FieldDef('cantidadusada', 'Cantidad usada', type: FT.number, required: true, min: 0, unidadDe: 'idinsumo', unidades: unidades),
-      ], initial: datos, okLabel: 'Registrar', edit: false);
+      final d = await showForm(
+          context,
+          'Insumo usado',
+          [
+            FieldDef('idinsumo', 'Insumo',
+                type: FT.select, required: true, options: opc),
+            FieldDef('cantidadusada', 'Cantidad usada',
+                type: FT.number,
+                required: true,
+                min: 0,
+                unidadDe: 'idinsumo',
+                unidades: unidades),
+          ],
+          initial: datos,
+          okLabel: 'Registrar',
+          edit: false);
       if (d == null || !mounted) return;
       datos = d;
     }
-    if (await run(context, () => operacionService.registrarInsumoUsado(widget.idtarea, datos, nombre: s(sug['nombre']), unidad: s(sug['unidad'])), ok: 'Insumo registrado y descontado del stock')) {
+    if (await run(
+        context,
+        () => operacionService.registrarInsumoUsado(widget.idtarea, datos,
+            nombre: s(sug['nombre']), unidad: s(sug['unidad'])),
+        ok: 'Insumo registrado y descontado del stock')) {
       _recargar();
     }
   }
@@ -249,41 +328,76 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
   void _recargar() {
     if (!mounted) return;
     setState(() {
-      _f = _load(); // sin devolver el Future: setState no admite callbacks asíncronos
+      _f =
+          _load(); // sin devolver el Future: setState no admite callbacks asíncronos
     });
   }
 
   Future<void> _registrarInsumo() async {
     final ins = await cargar(context, operacionService.insumosConUnidad);
     if (ins == null || !mounted) return;
-    if (ins.opciones.isEmpty) return snack(context, 'No hay insumos registrados en la finca');
-    final d = await showForm(context, 'Registrar insumo usado', [
-      FieldDef('idinsumo', 'Insumo', type: FT.select, required: true, options: ins.opciones),
-      FieldDef('cantidadusada', 'Cantidad usada', type: FT.number, required: true, min: 0, unidadDe: 'idinsumo', unidades: ins.unidades),
-    ], okLabel: 'Registrar', edit: false);
+    if (ins.opciones.isEmpty)
+      return snack(context, 'No hay insumos registrados en la finca');
+    final d = await showForm(
+        context,
+        'Registrar insumo usado',
+        [
+          FieldDef('idinsumo', 'Insumo',
+              type: FT.select, required: true, options: ins.opciones),
+          FieldDef('cantidadusada', 'Cantidad usada',
+              type: FT.number,
+              required: true,
+              min: 0,
+              unidadDe: 'idinsumo',
+              unidades: ins.unidades),
+        ],
+        okLabel: 'Registrar',
+        edit: false);
     if (d == null || !mounted) return;
-    if (await run(context, () => operacionService.registrarInsumoUsado(widget.idtarea, d), ok: 'Insumo registrado y descontado del stock')) {
+    if (await run(
+        context, () => operacionService.registrarInsumoUsado(widget.idtarea, d),
+        ok: 'Insumo registrado y descontado del stock')) {
       _recargar();
     }
   }
 
   Future<void> _horas(Map<String, dynamic> asig) async {
-    final d = await showForm(context, 'Tiempo trabajado', const [
-      FieldDef('horastrabajadas', 'Horas trabajadas', type: FT.number, min: 0, vaciable: true,
-          helper: 'Si lo dejas vacío se usa el tiempo del cronómetro. Solo sirve para repartir el costo entre las tareas; no cambia lo que se te paga'),
-    ], initial: asig, edit: true);
+    final d = await showForm(
+        context,
+        'Tiempo trabajado',
+        const [
+          FieldDef('horastrabajadas', 'Horas trabajadas',
+              type: FT.number,
+              min: 0,
+              vaciable: true,
+              helper:
+                  'Si lo dejas vacío se usa el tiempo del cronómetro. Solo sirve para repartir el costo entre las tareas; no cambia lo que se te paga'),
+        ],
+        initial: asig,
+        edit: true);
     if (d == null || !mounted) return;
-    if (await run(context, () => operacionService.actualizarAsignacion((asig['idasigtarea'] as num).toInt(), d), ok: 'Tiempo registrado')) {
+    if (await run(
+        context,
+        () => operacionService.actualizarAsignacion(
+            (asig['idasigtarea'] as num).toInt(), d),
+        ok: 'Tiempo registrado')) {
       _recargar();
     }
   }
 
   Future<void> _quitarInsumo(Map<String, dynamic> d) async {
-    if (!await confirmar(context, 'El registro se eliminará.', titulo: '¿Quitar este insumo de la tarea?', ok: 'Quitar', destructivo: true)) {
+    if (!await confirmar(context, 'El registro se eliminará.',
+        titulo: '¿Quitar este insumo de la tarea?',
+        ok: 'Quitar',
+        destructivo: true)) {
       return;
     }
     if (!mounted) return;
-    if (await run(context, () => operacionService.eliminarInsumoUsado((d['iddetalletarea'] as num).toInt()), ok: 'Registro eliminado')) {
+    if (await run(
+        context,
+        () => operacionService
+            .eliminarInsumoUsado((d['iddetalletarea'] as num).toInt()),
+        ok: 'Registro eliminado')) {
       _recargar();
     }
   }
@@ -296,28 +410,35 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
         final t = snap.data?.$1;
         return Scaffold(
           appBar: AppBar(
-            title: Text(t == null || t.actividad.isEmpty ? 'Tarea' : t.actividad),
+            title:
+                Text(t == null || t.actividad.isEmpty ? 'Tarea' : t.actividad),
             actions: [
               if (t != null)
                 RowMenu(item: t.raw, reload: _recargar, actions: [
                   for (final a in AccionesTarea.para(t))
-                    if (a.label != 'Eliminar') a
+                    if (a.label != 'Eliminar')
+                      a
                     else
                       RowAction(a.label, (ctx, it, _) async {
-                        if (await AccionesTarea.eliminar(ctx, t) && ctx.mounted) Navigator.pop(ctx);
+                        if (await AccionesTarea.eliminar(ctx, t) && ctx.mounted)
+                          Navigator.pop(ctx);
                       }, icon: a.icon, destructive: true),
                 ]),
             ],
           ),
           body: () {
-            if (t == null && snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-            if (snap.hasError) return AgroError(message: Api.errorMsg(snap.error!), onRetry: _recargar);
+            if (t == null && snap.connectionState != ConnectionState.done)
+              return const Center(child: CircularProgressIndicator());
+            if (snap.hasError)
+              return AgroError(
+                  message: Api.errorMsg(snap.error!), onRetry: _recargar);
             final insumos = snap.data!.$2;
             final asig = t!.asignacion;
             final pend = EvidenciaPendiente.de(widget.idtarea);
             final costoInsumos = insumos.fold<double>(0, (a, d) {
               final i = d['idinsumo'];
-              return a + n(d['cantidadusada']) * n(i is Map ? i['costounitario'] : 0);
+              return a +
+                  n(d['cantidadusada']) * n(i is Map ? i['costounitario'] : 0);
             });
             return RefreshIndicator(
               onRefresh: () async {
@@ -326,33 +447,49 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
               },
               child: ListView(padding: const EdgeInsets.all(14), children: [
                 AgroCard(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Expanded(child: Text(t.actividad, style: AgroText.title.copyWith(fontSize: 17))),
-                      if (t.estado.isNotEmpty) StatusBadge(t.estado),
-                      if (t.atrasada) ...[const SizedBox(width: 6), const StatusBadge('Atrasada')],
-                    ]),
-                    const SizedBox(height: 10),
-                    InfoRow('Fecha programada', fecha(t.fechaprogramada)),
-                    InfoRow('Cultivo', t.cultivoNombre),
-                    InfoRow('Prioridad', t.prioridad),
-                    if (n(t.raw['horasestimadas']) > 0) InfoRow('Tiempo estimado', '${cant(t.raw['horasestimadas'])} h'),
-                    if (n(t.raw['costototal']) > 0) InfoRow('Costo estimado', money(t.raw['costototal'])),
-                    if (t.costoReal > 0) InfoRow('Costo real', money(t.costoReal), strong: true),
-                  ]),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Expanded(
+                              child: Text(t.actividad,
+                                  style:
+                                      AgroText.title.copyWith(fontSize: 17))),
+                          if (t.estado.isNotEmpty) StatusBadge(t.estado),
+                          if (t.atrasada) ...[
+                            const SizedBox(width: 6),
+                            const StatusBadge('Atrasada')
+                          ],
+                        ]),
+                        const SizedBox(height: 10),
+                        InfoRow('Fecha programada', fecha(t.fechaprogramada)),
+                        InfoRow('Cultivo', t.cultivoNombre),
+                        InfoRow('Prioridad', t.prioridad),
+                        if (n(t.raw['horasestimadas']) > 0)
+                          InfoRow('Tiempo estimado',
+                              '${cant(t.raw['horasestimadas'])} h'),
+                        if (n(t.raw['costototal']) > 0)
+                          InfoRow('Costo estimado', money(t.raw['costototal'])),
+                        if (t.costoReal > 0)
+                          InfoRow('Costo real', money(t.costoReal),
+                              strong: true),
+                      ]),
                 ),
                 if (t.enCurso && t.inicioReal != null) ...[
                   const SizedBox(height: 14),
                   AgroCard(
                     color: AgroColors.surfaceGreen,
                     child: Row(children: [
-                      const Icon(Icons.timer_outlined, color: AgroColors.primary),
+                      const Icon(Icons.timer_outlined,
+                          color: AgroColors.primary),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const Text('En curso', style: AgroText.muted),
-                          _Cronometro(t.inicioReal!),
-                        ]),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('En curso', style: AgroText.muted),
+                              _Cronometro(t.inicioReal!),
+                            ]),
                       ),
                     ]),
                   ),
@@ -363,45 +500,75 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                 AgroCard(
                   child: asig == null
                       ? Row(children: [
-                          const Expanded(child: Text('Sin asignar todavía', style: AgroText.muted)),
+                          const Expanded(
+                              child: Text('Sin asignar todavía',
+                                  style: AgroText.muted)),
                           if (esAdmin)
                             FilledButton.icon(
                               onPressed: () async {
-                                if (await AccionesTarea.asignar(context, t)) _recargar();
+                                if (await AccionesTarea.asignar(context, t))
+                                  _recargar();
                               },
                               icon: const Icon(Icons.person_add_alt),
                               label: const Text('Asignar'),
                             ),
                         ])
-                      : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(children: [
-                            AgroAvatar(url: t.empleadoFoto, nombre: t.empleadoNombre, radius: 18),
-                            const SizedBox(width: 10),
-                            Expanded(child: Text(t.empleadoNombre.isEmpty ? (esAdmin ? 'Empleado' : 'Tú') : t.empleadoNombre, style: AgroText.title)),
-                            if (s(asig['estado']).isNotEmpty) StatusBadge(s(asig['estado'])),
-                          ]),
-                          const SizedBox(height: 8),
-                          InfoRow('Asignada el', fecha(asig['fechaasignacion'])),
-                          if (t.inicioReal != null) InfoRow('Inicio real', fecha(t.inicioReal, hora: true)),
-                          if (asig['fechafin'] != null && t.inicioReal != null)
-                            InfoRow('Duración', _duracion(DateTime.parse('${asig['fechafin']}').toLocal().difference(t.inicioReal!))),
-                          InfoRow('Horas trabajadas', cant(asig['horastrabajadas'])),
-                          const SizedBox(height: 6),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: () => _horas(asig),
-                              icon: const Icon(Icons.timer_outlined),
-                              label: const Text('Registrar tiempo'),
-                            ),
-                          ),
-                        ]),
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                              Row(children: [
+                                AgroAvatar(
+                                    url: t.empleadoFoto,
+                                    nombre: t.empleadoNombre,
+                                    radius: 18),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: Text(
+                                        t.empleadoNombre.isEmpty
+                                            ? (esAdmin ? 'Empleado' : 'Tú')
+                                            : t.empleadoNombre,
+                                        style: AgroText.title)),
+                                if (s(asig['estado']).isNotEmpty)
+                                  StatusBadge(s(asig['estado'])),
+                              ]),
+                              const SizedBox(height: 8),
+                              InfoRow('Asignada el',
+                                  fecha(asig['fechaasignacion'])),
+                              if (t.inicioReal != null)
+                                InfoRow('Inicio real',
+                                    fecha(t.inicioReal, hora: true)),
+                              if (asig['fechafin'] != null &&
+                                  t.inicioReal != null)
+                                InfoRow(
+                                    'Duración',
+                                    _duracion(
+                                        DateTime.parse('${asig['fechafin']}')
+                                            .toLocal()
+                                            .difference(t.inicioReal!))),
+                              InfoRow('Horas trabajadas',
+                                  cant(asig['horastrabajadas'])),
+                              const SizedBox(height: 6),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  onPressed: () => _horas(asig),
+                                  icon: const Icon(Icons.timer_outlined),
+                                  label: const Text('Registrar tiempo'),
+                                ),
+                              ),
+                            ]),
                 ),
                 const SizedBox(height: 14),
-                AgroSectionHeader('Evidencia', action: 'Agregar foto', onAction: _agregarFoto),
+                AgroSectionHeader(
+                  'Evidencia',
+                  action: session.esEmpleado ? 'Agregar foto' : null,
+                  onAction: session.esEmpleado ? _agregarFoto : null,
+                ),
                 const SizedBox(height: 8),
                 if (_evidencias.isEmpty && pend == null)
-                  const AgroEmpty(icon: Icons.photo_library_outlined, message: 'Aún no hay fotos de esta tarea')
+                  const AgroEmpty(
+                      icon: Icons.photo_library_outlined,
+                      message: 'Aún no hay fotos de esta tarea')
                 else
                   SizedBox(
                     height: 96,
@@ -434,55 +601,74 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                           juntar([
                             sug['cantidad'] == null
                                 ? 'Indica la cantidad'
-                                : 'Sugerido: ${cant(sug['cantidad'])} ${s(sug['unidad'])}${sug['hectareas'] != null ? ' (${cant(sug['hectareas'])} ha)' : ''}'.trim(),
-                            if (sug['stockactual'] != null) 'Disponible ${cant(sug['stockactual'])}',
+                                : 'Sugerido: ${cant(sug['cantidad'])} ${s(sug['unidad'])}${sug['hectareas'] != null ? ' (${cant(sug['hectareas'])} ha)' : ''}'
+                                    .trim(),
+                            if (sug['stockactual'] != null)
+                              'Disponible ${cant(sug['stockactual'])}',
                             if (sug['idinsumo'] == null) 'Elige un insumo',
                           ]),
                           style: AgroText.muted,
                         ),
                         trailing: IconButton(
                           tooltip: 'Confirmar',
-                          icon: const Icon(Icons.check_circle_outline, color: AgroColors.primary),
+                          icon: const Icon(Icons.check_circle_outline,
+                              color: AgroColors.primary),
                           onPressed: () => _usarSugerido(sug),
                         ),
                       ),
                     ),
                   const SizedBox(height: 6),
                 ],
-                AgroSectionHeader('Insumos usados', action: t.completada ? null : 'Registrar', onAction: _registrarInsumo),
+                AgroSectionHeader('Insumos usados',
+                    action: t.completada ? null : 'Registrar',
+                    onAction: _registrarInsumo),
                 const SizedBox(height: 8),
                 if (insumos.isEmpty)
-                  const AgroEmpty(icon: Icons.inventory_2_outlined, message: 'No se han registrado insumos en esta tarea')
+                  const AgroEmpty(
+                      icon: Icons.inventory_2_outlined,
+                      message: 'No se han registrado insumos en esta tarea')
                 else ...[
                   for (final d in insumos)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: AgroListCard(
                         leading: const AgroIconTile(icon: Icons.inventory_2),
-                        title: Text(s(d['idinsumo'] is Map ? d['idinsumo']['nombre'] : 'Insumo'), style: AgroText.title),
+                        title: Text(
+                            s(d['idinsumo'] is Map
+                                ? d['idinsumo']['nombre']
+                                : 'Insumo'),
+                            style: AgroText.title),
                         subtitle: Text(
-                          '${cant(d['cantidadusada'])} ${s(d['idinsumo'] is Map ? d['idinsumo']['unidadmedida'] : '')}'.trim(),
+                          '${cant(d['cantidadusada'])} ${s(d['idinsumo'] is Map ? d['idinsumo']['unidadmedida'] : '')}'
+                              .trim(),
                           style: AgroText.muted,
                         ),
                         trailing: esAdmin
                             ? IconButton(
                                 tooltip: 'Quitar registro',
-                                icon: const Icon(Icons.delete_outline, color: AgroColors.danger),
+                                icon: const Icon(Icons.delete_outline,
+                                    color: AgroColors.danger),
                                 onPressed: () => _quitarInsumo(d),
                               )
                             : null,
                       ),
                     ),
                   if (costoInsumos > 0 && _costos == null)
-                    AgroCard(color: AgroColors.surfaceGreen, child: InfoRow('Costo de insumos', money(costoInsumos), strong: true)),
+                    AgroCard(
+                        color: AgroColors.surfaceGreen,
+                        child: InfoRow('Costo de insumos', money(costoInsumos),
+                            strong: true)),
                 ],
-                if (_costos != null && (n(_costos!['total']) > 0 || n(_costos!['estimado']) > 0)) ...[
+                if (_costos != null &&
+                    (n(_costos!['total']) > 0 ||
+                        n(_costos!['estimado']) > 0)) ...[
                   const SizedBox(height: 14),
                   const AgroSectionHeader('Costos'),
                   const SizedBox(height: 8),
                   AgroCard(
                     child: Column(children: [
-                      if (n(_costos!['estimado']) > 0) InfoRow('Estimado', money(_costos!['estimado'])),
+                      if (n(_costos!['estimado']) > 0)
+                        InfoRow('Estimado', money(_costos!['estimado'])),
                       InfoRow('Insumos', money(_costos!['insumos'])),
                       InfoRow('Mano de obra', money(_costos!['manoObra'])),
                       if (n(_costos!['horas']) > 0)
@@ -498,8 +684,11 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                             ),
                           ),
                         ),
-                      if (n(_costos!['transporte']) > 0) InfoRow('Transporte', money(_costos!['transporte'])),
-                      InfoRow(t.completada ? 'Costo real' : 'Costo hasta ahora', money(_costos!['total']), strong: true),
+                      if (n(_costos!['transporte']) > 0)
+                        InfoRow('Transporte', money(_costos!['transporte'])),
+                      InfoRow(t.completada ? 'Costo real' : 'Costo hasta ahora',
+                          money(_costos!['total']),
+                          strong: true),
                     ]),
                   ),
                 ],
@@ -516,7 +705,8 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
                     onPressed: () async {
-                      if (await AccionesTarea.completar(context, t)) _recargar();
+                      if (await AccionesTarea.completar(context, t))
+                        _recargar();
                     },
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text('Marcar como completada'),
