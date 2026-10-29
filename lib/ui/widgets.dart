@@ -52,8 +52,9 @@ String juntar(Iterable<String> partes) =>
     partes.where((p) => p.trim().isNotEmpty).join(' · ');
 
 void snack(BuildContext c, String m) {
-  if (c.mounted)
+  if (c.mounted) {
     ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m)));
+  }
 }
 
 Future<bool> confirmar(
@@ -282,31 +283,36 @@ class _FormSheetState extends State<_FormSheet> {
   String? _validar(FieldDef f, String? raw) {
     final v = (raw ?? '').trim();
     if (v.isEmpty) return f.required ? 'Requerido' : null;
-    if (f.minLength != null && v.length < f.minLength!)
+    if (f.minLength != null && v.length < f.minLength!) {
       return 'Mínimo ${f.minLength} caracteres';
+    }
     switch (f.type) {
       case FT.email:
         if (!_emailRe.hasMatch(v)) return 'Correo inválido';
       case FT.number:
         final x = num.tryParse(v.replaceAll(',', '.'));
         if (x == null) return 'Ingresa un número válido';
-        if (f.min != null && x < f.min!)
+        if (f.min != null && x < f.min!) {
           return 'Debe ser mayor o igual a ${f.min}';
+        }
       case FT.phone:
-        if (!RegExp(r'^[0-9+\s-]{7,15}$').hasMatch(v))
+        if (!RegExp(r'^[0-9+\s-]{7,15}$').hasMatch(v)) {
           return 'Teléfono inválido';
+        }
       case FT.date:
         if (f.after != null) {
           final otra = DateTime.tryParse(_ctrl[f.after]?.text ?? '');
           final esta = DateTime.tryParse(v);
-          if (otra != null && esta != null && esta.isBefore(otra))
+          if (otra != null && esta != null && esta.isBefore(otra)) {
             return 'No puede ser anterior a la fecha inicial';
+          }
         }
       default:
         break;
     }
-    if (f.matches != null && v != _ctrl[f.matches]?.text.trim())
+    if (f.matches != null && v != _ctrl[f.matches]?.text.trim()) {
       return 'Las contraseñas no coinciden';
+    }
     return null;
   }
 
@@ -691,8 +697,9 @@ class AsyncListState extends State<AsyncList>
   Widget build(BuildContext context) {
     super.build(context);
     if (_data == null) {
-      if (_error != null)
+      if (_error != null) {
         return AgroError(message: Api.errorMsg(_error!), onRetry: reload);
+      }
       return const Center(child: CircularProgressIndicator());
     }
     final items =

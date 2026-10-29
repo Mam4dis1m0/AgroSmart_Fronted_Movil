@@ -16,11 +16,11 @@ void main() {
     expect(Tarea({'estado': 'Completado', 'fechaprogramada': ayer}).atrasada, isFalse);
     expect(Tarea({'estado': 'Asignado', 'fechaprogramada': manana}).atrasada, isFalse);
     expect(Tarea({'estado': 'Asignado', 'fechaprogramada': _ymd(hoy)}).atrasada, isFalse);
-    expect(Tarea({'estado': 'Pendiente'}).atrasada, isFalse);
+    expect(const Tarea({'estado': 'Pendiente'}).atrasada, isFalse);
   });
 
   test('La asignación vigente ignora las reasignadas', () {
-    final t = Tarea({
+    const t = Tarea({
       'estado': 'Asignado',
       'asignacionTareas': [
         {'idasigtarea': 5, 'estado': 'Reasignada'},
@@ -31,7 +31,7 @@ void main() {
   });
 
   test('El cronómetro corre solo si la asignación empezó y no ha terminado', () {
-    final iniciada = Tarea({
+    const iniciada = Tarea({
       'estado': 'En progreso',
       'asignacionTareas': [
         {'idasigtarea': 1, 'estado': 'En progreso', 'fechainicio': '2026-10-27T10:00:00.000Z', 'fechafin': null},
@@ -40,7 +40,7 @@ void main() {
     expect(iniciada.enCurso, isTrue);
     expect(iniciada.inicioReal, isNotNull);
 
-    final terminada = Tarea({
+    const terminada = Tarea({
       'estado': 'Completado',
       'asignacionTareas': [
         {'idasigtarea': 1, 'fechainicio': '2026-10-27T10:00:00.000Z', 'fechafin': '2026-10-27T12:00:00.000Z'},
@@ -48,7 +48,7 @@ void main() {
     });
     expect(terminada.enCurso, isFalse);
 
-    expect(Tarea({'estado': 'Asignado', 'asignacionTareas': [{'idasigtarea': 1}]}).enCurso, isFalse);
+    expect(const Tarea({'estado': 'Asignado', 'asignacionTareas': [{'idasigtarea': 1}]}).enCurso, isFalse);
   });
 
   test('La semana de la agenda empieza el lunes', () {

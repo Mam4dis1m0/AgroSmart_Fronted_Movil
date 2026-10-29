@@ -38,7 +38,9 @@ class FavoritosTab extends StatelessWidget {
             onPressed: () async {
               if (await run(
                   c, () => marketplaceService.quitarFavorito(w['idlistado']),
-                  ok: 'Quitado de favoritos')) reload();
+                  ok: 'Quitado de favoritos')) {
+                reload();
+              }
             },
           ),
         );
