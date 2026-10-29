@@ -30,7 +30,12 @@ class _AgendaPageState extends State<AgendaPage> {
   DateTime _semana = inicioSemana(DateTime.now());
   String? _empleado, _cultivo, _prioridad;
 
-  void _recargar() => setState(() => _f = operacionService.tareas());
+  void _recargar() {
+    if (!mounted) return;
+    setState(() {
+      _f = operacionService.tareas();
+    });
+  }
 
   bool _pasa(Tarea t) =>
       (_empleado == null || t.empleadoNombre == _empleado) &&

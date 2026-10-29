@@ -157,6 +157,13 @@ class FieldDef {
   /// Para números: valor mínimo permitido.
   final num? min;
 
+  /// Para números: clave del campo «select» cuya opción define la unidad de medida (p. ej. el insumo).
+  /// Mientras no haya opción elegida se explica que la unidad depende de ella.
+  final String? unidadDe;
+
+  /// Unidad de medida de cada opción del campo [unidadDe] (clave de la opción → «kg», «L»…).
+  final Map<dynamic, String> unidades;
+
   const FieldDef(
     this.key,
     this.label, {
@@ -170,6 +177,8 @@ class FieldDef {
     this.matches,
     this.after,
     this.min,
+    this.unidadDe,
+    this.unidades = const {},
   });
 }
 
@@ -291,6 +300,19 @@ class _FormSheetState extends State<_FormSheet> {
     if (f.matches != null && v != _ctrl[f.matches]?.text.trim())
       return 'Las contraseñas no coinciden';
     return null;
+  }
+
+  /// Unidad de medida de la opción elegida en el campo que define la unidad de [f] (null si no aplica).
+  String? _unidad(FieldDef f) {
+    final u = f.unidadDe == null ? null : f.unidades[_sel[f.unidadDe]];
+    return u == null || u.trim().isEmpty ? null : u.trim();
+  }
+
+  String? _ayudaUnidad(FieldDef f) {
+    if (f.unidadDe == null) return f.helper;
+    final u = _unidad(f);
+    if (u != null) return 'Unidad de medida: $u';
+    return _sel[f.unidadDe] == null ? 'La unidad de medida aparece al elegir el insumo' : 'Este insumo no tiene unidad registrada';
   }
 
   Widget _field(FieldDef f, bool last) {
@@ -455,7 +477,8 @@ class _FormSheetState extends State<_FormSheet> {
           },
           decoration: InputDecoration(
             labelText: f.label,
-            helperText: f.helper,
+            helperText: _ayudaUnidad(f),
+            suffixText: _unidad(f),
             suffixIcon: pass
                 ? IconButton(
                     tooltip: (_hide[f.key] ?? true) ? 'Mostrar' : 'Ocultar',

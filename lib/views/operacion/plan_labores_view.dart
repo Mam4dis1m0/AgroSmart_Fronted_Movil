@@ -70,7 +70,9 @@ class _PlanLaboresPageState extends State<PlanLaboresPage> {
         builder: (c, snap) {
           if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
           if (snap.hasError) {
-            return AgroError(message: Api.errorMsg(snap.error!), onRetry: () => setState(() => _f = _cargar()));
+            return AgroError(message: Api.errorMsg(snap.error!), onRetry: () => setState(() {
+                  _f = _cargar();
+                }));
           }
           final plan = snap.data!;
           final items = _items(plan);
