@@ -189,6 +189,21 @@ class OperacionService {
   Future<List<Map<String, dynamic>>> comprasInsumo(int idinsumo) =>
       _list('/api/v1/insumos/compras', query: {'idinsumo': idinsumo});
 
+  /// Insumos de la finca para elegir en un formulario, con la unidad de medida de cada uno.
+  Future<({List<MapEntry<dynamic, String>> opciones, Map<dynamic, String> unidades})> insumosConUnidad() async {
+    final l = await _list('/api/v1/insumos');
+    return (
+      opciones: [
+        for (final i in l)
+          MapEntry(i['idinsumo'], '${i['nombre'] ?? 'Insumo #${i['idinsumo']}'} (${_num(i['stockactual'])} ${i['unidadmedida'] ?? ''} disp.)'.trim()),
+      ],
+      unidades: {
+        for (final i in l)
+          if ('${i['unidadmedida'] ?? ''}'.trim().isNotEmpty) i['idinsumo']: '${i['unidadmedida']}'.trim(),
+      },
+    );
+  }
+
   Future<List<MapEntry<dynamic, String>>> insumosOpc() async => [
         for (final i in await _list('/api/v1/insumos'))
           MapEntry(i['idinsumo'],

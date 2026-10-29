@@ -33,11 +33,19 @@ class _Cronometro extends StatefulWidget {
 }
 
 class _CronometroState extends State<_Cronometro> {
-  late final Timer _t = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  Timer? _t;
+
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
-    _t.cancel();
+    _t?.cancel();
     super.dispose();
   }
 
@@ -113,13 +121,20 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
     var datos = <String, dynamic>{'idinsumo': sug['idinsumo'], 'cantidadusada': sug['cantidad']};
     if (editar || sug['idinsumo'] == null || sug['cantidad'] == null) {
       final cands = [for (final c in (sug['candidatos'] as List? ?? const [])) (c as Map).cast<String, dynamic>()];
-      final opc = cands.isNotEmpty
-          ? [for (final c in cands) MapEntry(c['idinsumo'], '${c['nombre']} (${cant(c['stockactual'])} ${s(c['unidadmedida'])} disp.)'.trim())]
-          : await cargar(context, operacionService.insumosOpc);
-      if (opc == null || !mounted) return;
+      List<MapEntry<dynamic, String>> opc;
+      Map<dynamic, String> unidades;
+      if (cands.isNotEmpty) {
+        opc = [for (final c in cands) MapEntry(c['idinsumo'], '${c['nombre']} (${cant(c['stockactual'])} ${s(c['unidadmedida'])} disp.)'.trim())];
+        unidades = {for (final c in cands) if (s(c['unidadmedida']).trim().isNotEmpty) c['idinsumo']: s(c['unidadmedida']).trim()};
+      } else {
+        final ins = await cargar(context, operacionService.insumosConUnidad);
+        if (ins == null || !mounted) return;
+        opc = ins.opciones;
+        unidades = ins.unidades;
+      }
       final d = await showForm(context, 'Insumo usado', [
         FieldDef('idinsumo', 'Insumo', type: FT.select, required: true, options: opc),
-        FieldDef('cantidadusada', 'Cantidad usada${s(sug['unidad']).isEmpty ? '' : ' (${s(sug['unidad'])})'}', type: FT.number, required: true, min: 0),
+        FieldDef('cantidadusada', 'Cantidad usada', type: FT.number, required: true, min: 0, unidadDe: 'idinsumo', unidades: unidades),
       ], initial: datos, okLabel: 'Registrar', edit: false);
       if (d == null || !mounted) return;
       datos = d;
@@ -129,15 +144,20 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
     }
   }
 
-  void _recargar() => setState(() => _f = _load());
+  void _recargar() {
+    if (!mounted) return;
+    setState(() {
+      _f = _load(); // sin devolver el Future: setState no admite callbacks asíncronos
+    });
+  }
 
   Future<void> _registrarInsumo() async {
-    final opc = await cargar(context, operacionService.insumosOpc);
-    if (opc == null || !mounted) return;
-    if (opc.isEmpty) return snack(context, 'No hay insumos registrados en la finca');
+    final ins = await cargar(context, operacionService.insumosConUnidad);
+    if (ins == null || !mounted) return;
+    if (ins.opciones.isEmpty) return snack(context, 'No hay insumos registrados en la finca');
     final d = await showForm(context, 'Registrar insumo usado', [
-      FieldDef('idinsumo', 'Insumo', type: FT.select, required: true, options: opc),
-      const FieldDef('cantidadusada', 'Cantidad usada', type: FT.number, required: true, min: 0),
+      FieldDef('idinsumo', 'Insumo', type: FT.select, required: true, options: ins.opciones),
+      FieldDef('cantidadusada', 'Cantidad usada', type: FT.number, required: true, min: 0, unidadDe: 'idinsumo', unidades: ins.unidades),
     ], okLabel: 'Registrar', edit: false);
     if (d == null || !mounted) return;
     if (await run(context, () => operacionService.registrarInsumoUsado(widget.idtarea, d), ok: 'Insumo registrado y descontado del stock')) {
