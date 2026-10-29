@@ -122,6 +122,42 @@ void main() {
       expect(srv.escrituras, isEmpty);
     });
 
+    testWidgets('una tarea de cosecha sin cultivo avisa que lo recolectado no quedará registrado', (t) async {
+      final sinCultivo = {..._tarea(), 'idcultivo': null};
+      final srv = await _preparar(t, {'GET /api/v1/tareas/7': sinCultivo}, const TareaDetallePage(idtarea: 7), rol: 'empleado');
+
+      await t.dragUntilVisible(find.text('Marcar como completada'), find.byType(ListView).first, const Offset(0, -300));
+      await t.tap(find.text('Marcar como completada'));
+      await _esperar(t);
+      await t.tap(find.text('Completar').last);
+      await _esperar(t);
+
+      expect(find.text('Tarea sin cultivo'), findsOneWidget);
+      expect(find.text('Lo recolectado'), findsNothing); // no pide una cantidad que se perdería
+      expect(srv.escrituras, isEmpty);
+
+      await t.tap(find.text('Completar igual'));
+      await _esperar(t);
+
+      final cuerpo = srv.cuerpoDe('PATCH /api/v1/tareas/70/finalizar') as Map;
+      expect(cuerpo.containsKey('cosecha'), isFalse);
+    });
+
+    testWidgets('en esa advertencia se puede cancelar y la tarea queda sin completar', (t) async {
+      final sinCultivo = {..._tarea(), 'idcultivo': null};
+      final srv = await _preparar(t, {'GET /api/v1/tareas/7': sinCultivo}, const TareaDetallePage(idtarea: 7), rol: 'empleado');
+
+      await t.dragUntilVisible(find.text('Marcar como completada'), find.byType(ListView).first, const Offset(0, -300));
+      await t.tap(find.text('Marcar como completada'));
+      await _esperar(t);
+      await t.tap(find.text('Completar').last);
+      await _esperar(t);
+      await t.tap(find.text('Cancelar'));
+      await _esperar(t);
+
+      expect(srv.escrituras, isEmpty);
+    });
+
     testWidgets('una tarea común se completa sin preguntar por cosecha', (t) async {
       final srv = await _preparar(
         t,
@@ -139,6 +175,22 @@ void main() {
       expect(find.text('Lo recolectado'), findsNothing);
       final cuerpo = srv.cuerpoDe('PATCH /api/v1/tareas/70/finalizar') as Map;
       expect(cuerpo.containsKey('cosecha'), isFalse);
+    });
+  });
+
+  group('Tiempo trabajado sin jornales', () {
+    testWidgets('el detalle y el formulario solo hablan de horas', (t) async {
+      final srv = await _preparar(t, {'GET /api/v1/tareas/7': _tarea()}, const TareaDetallePage(idtarea: 7));
+
+      expect(find.text('Horas trabajadas'), findsOneWidget);
+      expect(find.text('Jornales trabajados'), findsNothing);
+
+      await t.tap(find.text('Registrar tiempo'));
+      await _esperar(t);
+      expect(find.widgetWithText(TextFormField, 'Horas trabajadas'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Jornales trabajados'), findsNothing);
+      expect(find.textContaining('no cambia lo que se te paga'), findsOneWidget);
+      expect(srv.escrituras, isEmpty);
     });
   });
 

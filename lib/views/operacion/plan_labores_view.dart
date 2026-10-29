@@ -53,10 +53,11 @@ class _PlanLaboresPageState extends State<PlanLaboresPage> {
     final horas = n(i['horasestimadas']);
     final personas = n(i['numpersonas']).toInt();
     final costo = n(i['costoestimado']);
+    final porHa = n(i['personasPorHectarea']);
     return juntar([
       if (i['fecha'] != null) fecha(i['fecha']),
-      if (horas > 0) '${cant(horas)} h${i['hectareas'] != null ? ' (${cant(i['horasPorHectarea'])} h/ha)' : ''}',
-      if (personas > 1) '$personas personas',
+      if (personas > 0) '$personas ${personas == 1 ? 'persona' : 'personas'}${i['hectareas'] != null ? ' (${cant(porHa)}/ha)' : ''}',
+      if (horas > 0) '${cant(horas)} h',
       if (costo > 0) 'aprox. ${money(costo)}',
     ]);
   }
@@ -99,7 +100,7 @@ class _PlanLaboresPageState extends State<PlanLaboresPage> {
                     Expanded(
                       child: Text(
                         plan['hectareas'] != null
-                            ? 'Lote de ${cant(plan['hectareas'])} ha: las horas y cantidades de cada labor se calculan por hectárea.'
+                            ? 'Lote de ${cant(plan['hectareas'])} ha: las personas y los insumos se calculan por hectárea. Las horas son lo que tarda el grupo en terminar la tarea.'
                             : 'El lote no tiene área registrada: se muestran los valores para 1 hectárea. Registra las hectáreas del lote para ajustarlos.',
                         style: AgroText.muted,
                       ),
