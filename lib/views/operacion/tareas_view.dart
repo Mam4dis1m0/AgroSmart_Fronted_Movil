@@ -67,42 +67,27 @@ class AccionesTarea {
     }
     final sugerida = elegidos.isNotEmpty;
 
-    // Con la persona ya elegida se propone el pago (tarifa × tiempo, o promedio de lo pagado antes)
-    Map<String, dynamic>? pago;
-    if (sugerida && elegidos.length == 1) {
-      try {
-        pago = await operacionService.pagoSugerido(t.idtarea, elegidos.first);
-      } catch (_) {}
-      if (!c.mounted) return false;
+    // Con una sugerencia aceptada no hay nada más que preguntar; si no, se elige a quién asignar
+    int? elegidoAMano;
+    if (!sugerida) {
+      final d = await showForm(
+        c,
+        t.asignacion == null ? 'Asignar tarea' : 'Reasignar tarea',
+        [FieldDef('idempleado', 'Empleado', type: FT.select, required: true, options: emps)],
+        okLabel: 'Asignar',
+        edit: false,
+      );
+      if (d == null || !c.mounted) return false;
+      elegidoAMano = (d['idempleado'] as num).toInt();
     }
-    final propuesto = pago?['sugerido'];
 
-    final d = await showForm(
-      c,
-      t.asignacion == null ? 'Asignar tarea' : 'Reasignar tarea',
-      [
-        if (!sugerida) FieldDef('idempleado', 'Empleado', type: FT.select, required: true, options: emps),
-        FieldDef('pagoacordado', 'Pago acordado (COP)',
-            type: FT.number,
-            min: 0,
-            helper: propuesto == null
-                ? null
-                : 'Sugerido: ${s(pago?['detalle'])}. Si registra horas, se paga por tiempo trabajado.'),
-      ],
-      initial: propuesto == null ? null : {'pagoacordado': propuesto},
-      okLabel: 'Asignar',
-      edit: false,
-    );
-    if (d == null || !c.mounted) return false;
-
-    final ids = sugerida ? elegidos : [(d['idempleado'] as num).toInt()];
+    final ids = sugerida ? elegidos : [elegidoAMano!];
     // Reasignar cierra la asignación anterior (queda en el historial) para no dejar la tarea esperando a otra persona
     return run(
       c,
       () async {
         for (var i = 0; i < ids.length; i++) {
           await operacionService.asignarTarea(t.idtarea, {
-            ...d,
             'idempleado': ids[i],
             'origenasignacion': sugerida ? 'sugerida' : 'manual',
             if (i == 0 && t.asignacion != null) 'reemplazar': true,
@@ -125,18 +110,46 @@ class AccionesTarea {
     );
   }
 
+  /// En una tarea de cosecha pregunta cuánto se recolectó. null = cancelado; vacío = no aplica.
+  static Future<Map<String, dynamic>?> pedirCosecha(BuildContext c, Tarea t) async {
+    if (!t.esCosecha || t.asignacion == null) return const {};
+    return showForm(
+      c,
+      'Lo recolectado',
+      const [
+        FieldDef('cantidad', 'Cantidad recolectada', type: FT.number, required: true, min: 0.01,
+            helper: 'Queda registrada en Producción › Cosechas, ligada a esta tarea'),
+        FieldDef('unidad', 'Unidad', type: FT.selectOther, required: true, options: [
+          MapEntry('Kilo', 'Kilo'),
+          MapEntry('Libra', 'Libra'),
+          MapEntry('Caja', 'Caja'),
+          MapEntry('Canasta', 'Canasta'),
+          MapEntry('Racimo', 'Racimo'),
+          MapEntry('Bulto', 'Bulto'),
+          MapEntry('Tonelada', 'Tonelada'),
+        ]),
+        FieldDef('calidad', 'Calidad (opcional)'),
+      ],
+      initial: const {'unidad': 'Kilo'},
+      okLabel: 'Continuar',
+      edit: false,
+    );
+  }
+
   static Future<bool> completar(BuildContext c, Tarea t) async {
     if (!await confirmar(c, 'Se avisará por correo al administrador.', titulo: '¿Marcar «${t.actividad}» como completada?', ok: 'Completar')) {
       return false;
     }
     if (!c.mounted) return false;
+    final cosecha = await pedirCosecha(c, t);
+    if (cosecha == null || !c.mounted) return false;
     final asig = t.asignacion;
     return run(
       c,
       () => asig != null
-          ? operacionService.completarAsignacion((asig['idasigtarea'] as num).toInt())
+          ? operacionService.completarAsignacion((asig['idasigtarea'] as num).toInt(), cosecha: cosecha.isEmpty ? null : cosecha)
           : operacionService.actualizarTarea(t.idtarea, {'estado': 'Completado'}),
-      ok: 'Tarea completada',
+      ok: cosecha.isEmpty ? 'Tarea completada' : 'Tarea completada y cosecha registrada',
     );
   }
 
@@ -147,6 +160,8 @@ class AccionesTarea {
       FieldDef('observaciones', 'Observaciones (opcional)', type: FT.multiline),
     ], okLabel: 'Enviar y completar', edit: false);
     if (obs == null || !c.mounted) return false;
+    final cosecha = await pedirCosecha(c, t);
+    if (cosecha == null || !c.mounted) return false;
     var enCola = false;
     final ok = await run(c, () async {
       enCola = await operacionService.completarConEvidencia(
@@ -154,6 +169,7 @@ class AccionesTarea {
         foto: img.bytes,
         nombreArchivo: img.nombre,
         observaciones: s(obs['observaciones']),
+        cosecha: cosecha.isEmpty ? null : cosecha,
       );
     });
     if (ok && c.mounted) {

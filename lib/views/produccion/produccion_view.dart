@@ -40,7 +40,10 @@ class ProduccionPage extends StatelessWidget {
         fields: () async => const [
           FieldDef('nombre', 'Nombre', required: true, minLength: 2),
           FieldDef('areahectareas', 'Área (hectáreas)',
-              type: FT.number, min: 0),
+              type: FT.number,
+              min: 0,
+              helper:
+                  'Con el área se calculan las horas y los insumos de cada labor del cultivo'),
           FieldDef('ubicacion', 'Ubicación (referencia dentro de la finca)'),
           FieldDef('descripcion', 'Descripción', type: FT.multiline),
           FieldDef(
