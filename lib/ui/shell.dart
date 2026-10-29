@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/services/contadores.dart';
@@ -16,7 +16,7 @@ import 'package:agrosmart_proto/views/operacion/operacion_view.dart';
 import 'package:agrosmart_proto/views/perfil/perfil_view.dart';
 import 'package:agrosmart_proto/views/produccion/produccion_view.dart';
 
-/// PestaÃ±as de la navegaciÃ³n inferior.
+/// Pestañas de la navegación inferior.
 enum ShellTab { inicio, cultivos, tareas, mercado, equipo, avisos, mas }
 
 class _Tab {
@@ -30,12 +30,12 @@ class _Tab {
       {this.badge, this.prominent = false});
 }
 
-/// Contenedor principal de la app una vez hay sesiÃ³n + finca: header, drawer y
-/// navegaciÃ³n inferior segÃºn el rol.
+/// Contenedor principal de la app una vez hay sesión + finca: header, drawer y
+/// navegación inferior según el rol.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
-  /// Cambia de pestaÃ±a desde cualquier pantalla dentro del shell.
+  /// Cambia de pestaña desde cualquier pantalla dentro del shell.
   static void irA(BuildContext c, ShellTab tab, {int sub = 0}) =>
       c.findAncestorStateOfType<_HomeShellState>()?._irA(tab, sub);
 
@@ -65,7 +65,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     }
     if (session.esEmpleado) {
       // El empleado no usa el Marketplace (la cosecha y la venta las gestiona el
-      // administrador): Inicio con sus tareas, Mis tareas, Alertas y MenÃº (cajÃ³n).
+      // administrador): Inicio con sus tareas, Mis tareas, Alertas y Menú (cajón).
       return [
         _Tab(ShellTab.inicio, 'Inicio', Icons.home_rounded,
             (_) => const InicioPage()),
@@ -74,7 +74,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         _Tab(ShellTab.avisos, 'Alertas', Icons.notifications,
             (_) => const AvisosPage(),
             badge: contadores.avisos),
-        _Tab(ShellTab.mas, 'MenÃº', Icons.person, (_) => const SizedBox.shrink()),
+        _Tab(ShellTab.mas, 'Menú', Icons.person, (_) => const SizedBox.shrink()),
       ];
     }
     return [
@@ -94,7 +94,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     ];
   }
 
-  /// Insignia del menÃº: avisos + mensajes sin leer.
+  /// Insignia del menú: avisos + mensajes sin leer.
   final ValueNotifier<int> _badgeMas = ValueNotifier(0);
 
   void _sumarMas() => _badgeMas.value =
@@ -124,7 +124,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       contadores.refrescar();
-      Api.i.sincronizar(); // envÃ­a los cambios hechos sin internet
+      Api.i.sincronizar(); // envía los cambios hechos sin internet
     }
   }
 
@@ -144,7 +144,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     m.showSnackBar(SnackBar(
         content: Text(ok
             ? 'Conectado con el servidor'
-            : 'Sin conexiÃ³n con el servidor')));
+            : 'Sin conexión con el servidor')));
   }
 
   @override
@@ -160,7 +160,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final puedeChatear = session.esComprador || esAdmin;
 
     return PopScope(
-      // AtrÃ¡s en otra pestaÃ±a vuelve a la primera antes de salir de la app.
+      // Atrás en otra pestaña vuelve a la primera antes de salir de la app.
       canPop: _i == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && _i != 0) setState(() => _i = 0);
@@ -193,7 +193,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                           textColor: AgroColors.forestDeep,
                           label: Text('$nMsj'),
                           child: const Icon(Icons.chat_bubble_outline,
-                              color: AgroColors.mintPale),
+                              color: AgroColors.primary),
                         ),
                       ),
                     ),
@@ -211,7 +211,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                         child: Row(children: [
                           Expanded(
                             child: Text(
-                                '$n cambio${n == 1 ? '' : 's'} pendiente${n == 1 ? '' : 's'} de enviar. Se enviarÃ¡${n == 1 ? '' : 'n'} al volver el internet.',
+                                '$n cambio${n == 1 ? '' : 's'} pendiente${n == 1 ? '' : 's'} de enviar. Se enviará${n == 1 ? '' : 'n'} al volver el internet.',
                                 style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -274,7 +274,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           builder: (_, __) => AgroBottomNav(
             index: _i,
             onTap: (v) {
-              // Para el empleado Â«MenÃºÂ» abre el cajÃ³n en vez de cambiar de pestaÃ±a.
+              // Para el empleado «Menú» abre el cajón en vez de cambiar de pestaña.
               if (session.esEmpleado && _tabs[v].id == ShellTab.mas) {
                 _scaffoldKey.currentState?.openDrawer();
                 return;
@@ -294,7 +294,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   }
 }
 
-/// CajÃ³n lateral (drawer) con identidad de usuario, cambio de finca y cierre de sesiÃ³n.
+/// Cajón lateral (drawer) con identidad de usuario, cambio de finca y cierre de sesión.
 class _AgroDrawer extends StatelessWidget {
   const _AgroDrawer();
 
@@ -308,13 +308,7 @@ class _AgroDrawer extends StatelessWidget {
       child: Column(children: [
         Container(
           width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AgroColors.forest, AgroColors.heroMid, AgroColors.heroEnd],
-            ),
-          ),
+          color: AgroColors.forest,
           padding: EdgeInsets.fromLTRB(
               20, MediaQuery.of(context).padding.top + 20, 20, 20),
           child:
@@ -357,11 +351,11 @@ class _AgroDrawer extends StatelessWidget {
   }
 }
 
-/// Confirma y cierra la sesiÃ³n.
+/// Confirma y cierra la sesión.
 Future<void> cerrarSesion(BuildContext c) async {
   if (!await confirmar(
-      c, 'TendrÃ¡s que volver a ingresar tu correo y contraseÃ±a.',
-      titulo: 'Â¿Cerrar sesiÃ³n?', ok: 'Cerrar sesiÃ³n')) {
+      c, 'Tendrás que volver a ingresar tu correo y contraseña.',
+      titulo: '¿Cerrar sesión?', ok: 'Cerrar sesión')) {
     return;
   }
   contadores.limpiar();

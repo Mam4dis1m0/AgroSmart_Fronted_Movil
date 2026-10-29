@@ -22,6 +22,11 @@ class NominaService {
     await Api.i.dio.patch('/api/v1/nomina/detalle/$iddetalle/deducciones', data: {'deducciones': deducciones});
   }
 
+  /// PATCH /api/v1/nomina/detalle/{iddetalle}/unidades (solo en BORRADOR): corrige los días, semanas o meses pagados.
+  Future<void> ajustarUnidades(dynamic iddetalle, num unidades) async {
+    await Api.i.dio.patch('/api/v1/nomina/detalle/$iddetalle/unidades', data: {'unidades': unidades});
+  }
+
   Future<void> confirmar(dynamic idnomina) async {
     await Api.i.dio.patch('/api/v1/nomina/$idnomina/confirmar');
   }

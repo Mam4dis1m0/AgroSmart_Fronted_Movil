@@ -4,31 +4,60 @@ import 'package:agrosmart_proto/theme.dart';
 import 'package:agrosmart_proto/ui/design.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
 
+const _etapas = ['Preparación', 'Siembra', 'Crecimiento', 'Mantenimiento', 'Cosecha', 'Postcosecha'];
+
 const _bases = {'siembra': 'La siembra', 'cosecha_estimada': 'La cosecha estimada', 'inicio': 'El inicio del cultivo'};
 
-/// Plantillas de labores de la finca: el administrador ajusta cuándo, cuánto y con cuántas personas
-/// se hace cada labor de un tipo de cultivo. Con ellas se arma el plan de cada cultivo.
+/// Plantillas de labores de la finca: el administrador ajusta cuándo se hace cada labor de un tipo de cultivo,
+/// cuántas personas por hectárea y cuántas horas tarda el grupo en terminarla. Con ellas se arma el plan de cada cultivo.
 class PlantillasTab extends StatelessWidget {
   const PlantillasTab({super.key});
 
-  Future<List<FieldDef>> _campos() async => [
+  /// Campos de una labor. El orden importa: primero cuántas personas por hectárea y luego cuántas horas
+  /// tarda ese grupo en terminar la tarea. [categorias] solo se pasa al crear una labor propia.
+  List<FieldDef> _campos({List<MapEntry<dynamic, String>>? categorias}) => [
+        if (categorias != null) FieldDef('categoria', 'Categoría de cultivo', type: FT.select, required: true, options: categorias),
         const FieldDef('actividad', 'Labor', required: true, minLength: 3),
-        const FieldDef('etapa', 'Etapa (siembra, crecimiento, cosecha…)'),
+        FieldDef('etapa', 'Etapa', type: FT.select, options: [for (final e in _etapas) MapEntry(e, e)],
+            helper: 'En qué momento del ciclo del cultivo se hace. «Cosecha» pide registrar lo recolectado al completarla'),
         FieldDef('base', 'Se cuenta desde', type: FT.select, options: [for (final e in _bases.entries) MapEntry(e.key, e.value)]),
         const FieldDef('diasoffset', 'Días desde esa fecha (negativo = antes)', type: FT.number),
-        const FieldDef('horasestimadas', 'Horas estimadas', type: FT.number, min: 0),
-        const FieldDef('numpersonas', 'Personas necesarias', type: FT.number, min: 1),
+        const FieldDef('personasporhectarea', 'Personas sugeridas por hectárea', type: FT.number, required: true, min: 0.1,
+            helper: 'Se multiplican por las hectáreas del lote: con 2 por hectárea, un lote de 3 ha necesita 6 personas'),
+        const FieldDef('horasestimadas', 'Horas esperadas para terminar la tarea', type: FT.number, required: true, min: 0.5,
+            helper: 'Lo que tarda ese grupo en terminarla. No cambia con el tamaño del lote: a más hectáreas se sugieren más personas'),
         const FieldDef('prioridad', 'Prioridad', type: FT.select, options: [
           MapEntry('Alta', 'Alta'), MapEntry('Media', 'Media'), MapEntry('Baja', 'Baja'),
         ]),
         const FieldDef('esrecurrente', '¿Se repite?', type: FT.select, options: [MapEntry(true, 'Sí'), MapEntry(false, 'No')]),
-        const FieldDef('frecuenciadias', 'Repetir cada (días)', type: FT.number, min: 1),
-        const FieldDef('diasfin', 'Repetir hasta (días desde esa fecha)', type: FT.number, min: 0),
-        const FieldDef('modalidadpago', 'Cómo se paga', type: FT.select, options: [
-          MapEntry('tiempo', 'Por tiempo trabajado'), MapEntry('fijo', 'Valor acordado (destajo)'),
-        ]),
-        const FieldDef('activa', 'Estado', type: FT.select, options: [MapEntry(true, 'Activa'), MapEntry(false, 'Desactivada')]),
+        const FieldDef('frecuenciadias', 'Repetir cada (días)', type: FT.number, min: 1, vaciable: true,
+            helper: 'Obligatorio si la labor se repite; sin este dato no se repite'),
+        const FieldDef('diasfin', 'Repetir hasta (días desde esa fecha)', type: FT.number, min: 0, vaciable: true,
+            helper: 'Vacío = hasta la cosecha estimada del cultivo'),
+        const FieldDef('activa', 'Estado', type: FT.select, onlyEdit: true, options: [MapEntry(true, 'Activa'), MapEntry(false, 'Desactivada')]),
       ];
+
+  /// Qué quiere agregar el administrador: todo el catálogo de una categoría o una labor propia.
+  Future<String?> _queAgregar(BuildContext c) => showModalBottomSheet<String>(
+        context: c,
+        showDragHandle: true,
+        builder: (ctx) => SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            ListTile(
+              leading: const Icon(Icons.library_add_outlined),
+              title: const Text('Cargar el catálogo de un tipo de cultivo'),
+              subtitle: const Text('Trae todas las labores de la categoría para que las ajustes'),
+              onTap: () => Navigator.pop(ctx, 'catalogo'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_task_outlined),
+              title: const Text('Crear una labor propia'),
+              subtitle: const Text('Una labor que no está en el catálogo'),
+              onTap: () => Navigator.pop(ctx, 'propia'),
+            ),
+          ]),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -39,23 +68,30 @@ class PlantillasTab extends StatelessWidget {
       emptyIcon: Icons.event_note_outlined,
       addLabel: 'Agregar labores',
       onAdd: (reload) async {
+        final queHacer = await _queAgregar(context);
+        if (queHacer == null || !context.mounted) return;
         final cats = await cargar(context, operacionService.categoriasOpc);
         if (cats == null || !context.mounted) return;
-        final d = await showForm(context, 'Agregar labores', [
-          FieldDef('categoria', 'Categoría de cultivo', type: FT.select, required: true, options: cats),
-          const FieldDef('actividad', 'Nombre de una labor propia (opcional)',
-              helper: 'Déjalo vacío para cargar todo el catálogo base de la categoría.'),
-        ], okLabel: 'Agregar', edit: false);
-        if (d == null || !context.mounted) return;
-        final propia = s(d['actividad']).trim();
-        final ok = await run(
+
+        if (queHacer == 'catalogo') {
+          final d = await showForm(context, 'Cargar catálogo', [
+            FieldDef('categoria', 'Categoría de cultivo', type: FT.select, required: true, options: cats),
+          ], okLabel: 'Cargar', edit: false);
+          if (d == null || !context.mounted) return;
+          if (await run(context, () => operacionService.adoptarCategoria(s(d['categoria'])), ok: 'Catálogo cargado')) reload();
+          return;
+        }
+
+        final d = await showForm(
           context,
-          () => propia.isEmpty
-              ? operacionService.adoptarCategoria(s(d['categoria']))
-              : operacionService.crearPlantilla({'categoria': d['categoria'], 'actividad': propia}),
-          ok: propia.isEmpty ? 'Catálogo cargado' : 'Labor creada',
+          'Nueva labor',
+          _campos(categorias: cats),
+          initial: const {'base': 'siembra', 'diasoffset': 0, 'prioridad': 'Media', 'esrecurrente': false},
+          okLabel: 'Registrar',
+          edit: false,
         );
-        if (ok) reload();
+        if (d == null || !context.mounted) return;
+        if (await run(context, () => operacionService.crearPlantilla(d), ok: 'Labor creada')) reload();
       },
       itemBuilder: (c, p, reload) {
         final activa = p['activa'] != false;
@@ -72,8 +108,9 @@ class PlantillasTab extends StatelessWidget {
             juntar([
               s(p['categoria']).replaceAll('_', ' '),
               '${dias >= 0 ? '+' : ''}$dias d desde ${(_bases[s(p['base'])] ?? s(p['base'])).toLowerCase()}',
+              if (s(p['etapa']).isNotEmpty) s(p['etapa']),
+              '${cant(p['personasporhectarea'])} ${n(p['personasporhectarea']) == 1 ? 'persona' : 'personas'}/ha',
               if (n(p['horasestimadas']) > 0) '${cant(p['horasestimadas'])} h',
-              if (n(p['numpersonas']) > 1) '${n(p['numpersonas']).toInt()} personas',
               if (recurrente) 'cada ${n(p['frecuenciadias']).toInt()} d',
             ]),
             style: AgroText.muted,
@@ -81,9 +118,7 @@ class PlantillasTab extends StatelessWidget {
           badges: activa ? null : const StatusBadge('Inactivo'),
           trailing: RowMenu(item: p, reload: reload, actions: [
             RowAction('Editar', (ctx, it, rel) async {
-              final f = await cargar(ctx, _campos);
-              if (f == null || !ctx.mounted) return;
-              final d = await showForm(ctx, 'Editar labor', f, initial: it, edit: true);
+              final d = await showForm(ctx, 'Editar labor', _campos(), initial: it, edit: true);
               if (d == null || !ctx.mounted) return;
               if (await run(ctx, () => operacionService.actualizarPlantilla((it['idplantilla'] as num).toInt(), d), ok: 'Cambios guardados')) rel();
             }, icon: Icons.edit_outlined),

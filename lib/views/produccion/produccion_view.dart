@@ -40,9 +40,13 @@ class ProduccionPage extends StatelessWidget {
         fields: () async => const [
           FieldDef('nombre', 'Nombre', required: true, minLength: 2),
           FieldDef('areahectareas', 'Área (hectáreas)',
-              type: FT.number, min: 0),
-          FieldDef('ubicacion', 'Ubicación (referencia dentro de la finca)'),
-          FieldDef('descripcion', 'Descripción', type: FT.multiline),
+              type: FT.number,
+              min: 0,
+              vaciable: true,
+              helper:
+                  'Con el área se calculan las personas y los insumos de cada labor del cultivo'),
+          FieldDef('ubicacion', 'Ubicación (referencia dentro de la finca)', vaciable: true),
+          FieldDef('descripcion', 'Descripción', type: FT.multiline, vaciable: true),
           FieldDef(
             'imagenurl',
             'Foto del lote',
@@ -141,6 +145,7 @@ class ProduccionPage extends StatelessWidget {
           const FieldDef(
             'nombrelote',
             'Referencia para distinguirlo (opcional)',
+            vaciable: true,
             helper:
                 'Solo si necesitas diferenciar cultivos del mismo tipo, por ejemplo “Mango de la entrada”.',
           ),

@@ -27,9 +27,11 @@ class OperacionService {
 
   /// PATCH /api/v1/tareas/{idasigtarea}/finalizar — el id es el de la ASIGNACIÓN.
   /// `at` es la hora real del toque: si no hay red la petición se encola y el servidor respeta esta hora.
-  Future<void> completarAsignacion(int idasigtarea) async {
+  /// En una tarea de cosecha, [cosecha] trae lo recolectado ({cantidad, unidad, calidad}) y queda en Cosechas.
+  Future<void> completarAsignacion(int idasigtarea, {Map<String, dynamic>? cosecha}) async {
     final ahora = DateTime.now();
-    final r = await Api.i.dio.patch('/api/v1/tareas/$idasigtarea/finalizar', data: {'at': _iso(ahora)});
+    final r = await Api.i.dio.patch('/api/v1/tareas/$idasigtarea/finalizar',
+        data: {'at': _iso(ahora), if (cosecha != null) 'cosecha': cosecha});
     if (_encolado(r)) await _reflejar(idasigtarea, (a) => _cerrar(a, ahora));
   }
 
@@ -106,11 +108,17 @@ class OperacionService {
     required Uint8List foto,
     required String nombreArchivo,
     String? observaciones,
+    Map<String, dynamic>? cosecha,
   }) async {
     final asig = tarea.asignacion;
     final ahora = DateTime.now();
     final campos = <String, String>{
       if ((observaciones ?? '').isNotEmpty) 'observaciones': observaciones!,
+      if (cosecha != null) ...{
+        'cosecha_cantidad': '${cosecha['cantidad']}',
+        'cosecha_unidad': '${cosecha['unidad'] ?? 'Kilo'}',
+        if ('${cosecha['calidad'] ?? ''}'.isNotEmpty) 'cosecha_calidad': '${cosecha['calidad']}',
+      },
       if (asig != null) 'idasigtarea': '${asig['idasigtarea']}',
       'at': _iso(ahora),
     };
@@ -189,6 +197,21 @@ class OperacionService {
   Future<List<Map<String, dynamic>>> comprasInsumo(int idinsumo) =>
       _list('/api/v1/insumos/compras', query: {'idinsumo': idinsumo});
 
+  /// Insumos de la finca para elegir en un formulario, con la unidad de medida de cada uno.
+  Future<({List<MapEntry<dynamic, String>> opciones, Map<dynamic, String> unidades})> insumosConUnidad() async {
+    final l = await _list('/api/v1/insumos');
+    return (
+      opciones: [
+        for (final i in l)
+          MapEntry(i['idinsumo'], '${i['nombre'] ?? 'Insumo #${i['idinsumo']}'} (${_num(i['stockactual'])} ${i['unidadmedida'] ?? ''} disp.)'.trim()),
+      ],
+      unidades: {
+        for (final i in l)
+          if ('${i['unidadmedida'] ?? ''}'.trim().isNotEmpty) i['idinsumo']: '${i['unidadmedida']}'.trim(),
+      },
+    );
+  }
+
   Future<List<MapEntry<dynamic, String>>> insumosOpc() async => [
         for (final i in await _list('/api/v1/insumos'))
           MapEntry(i['idinsumo'],
@@ -254,13 +277,17 @@ class OperacionService {
   /// Insumos que suele gastar esta labor, con cantidad propuesta (plantilla o historial de la finca).
   Future<List<Map<String, dynamic>>> insumosSugeridos(int idtarea) => _list('/api/v1/tareas/$idtarea/insumos-sugeridos');
 
-  /// Pago propuesto al asignar: {modalidad, sugerido, base, detalle, muestras}.
-  Future<Map<String, dynamic>> pagoSugerido(int idtarea, int idempleado) async {
-    final r = await Api.i.dio.get('/api/v1/tareas/$idtarea/pago-sugerido', queryParameters: {'idempleado': idempleado});
+  /// Jornada de la finca y costo promedio por hora de mano de obra.
+  Future<Map<String, dynamic>> jornada() async {
+    final r = await Api.i.dio.get('/api/v1/tareas/config/jornada');
     return (r.data as Map).cast<String, dynamic>();
   }
 
-  /// Desglose de costos: {estimado, insumos, manoObra, transporte, total}.
+  Future<void> guardarJornada(Map<String, dynamic> data) async {
+    await Api.i.dio.put('/api/v1/tareas/config/jornada', data: data);
+  }
+
+  /// Desglose de costos: {estimado, insumos, manoObra, horas, personas, costoHora, transporte, total}.
   Future<Map<String, dynamic>> costosTarea(int idtarea) async {
     final r = await Api.i.dio.get('/api/v1/tareas/$idtarea/costos');
     return (r.data as Map).cast<String, dynamic>();

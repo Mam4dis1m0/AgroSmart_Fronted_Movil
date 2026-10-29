@@ -131,7 +131,8 @@ enum FT {
   select,
   selectOther,
   phone,
-  image
+  image,
+  time
 }
 
 const _otherSelectValue = '__agro_otro__';
@@ -158,6 +159,17 @@ class FieldDef {
   /// Para números: valor mínimo permitido.
   final num? min;
 
+  /// Para números: clave del campo «select» cuya opción define la unidad de medida (p. ej. el insumo).
+  /// Mientras no haya opción elegida se explica que la unidad depende de ella.
+  final String? unidadDe;
+
+  /// Unidad de medida de cada opción del campo [unidadDe] (clave de la opción → «kg», «L»…).
+  final Map<dynamic, String> unidades;
+
+  /// Al EDITAR, dejar este campo opcional vacío lo borra (se envía null). Sin esto, un campo vacío se
+  /// ignora y conserva el valor que ya tenía. Solo aplica a texto, números y teléfonos no obligatorios.
+  final bool vaciable;
+
   const FieldDef(
     this.key,
     this.label, {
@@ -171,6 +183,9 @@ class FieldDef {
     this.matches,
     this.after,
     this.min,
+    this.unidadDe,
+    this.unidades = const {},
+    this.vaciable = false,
   });
 }
 
@@ -243,7 +258,9 @@ class _FormSheetState extends State<_FormSheet> {
         _ctrl[f.key] = TextEditingController(
           text: f.type == FT.date
               ? d10(v)
-              : (f.type == FT.number && v != null ? _numTxt(v) : s(v)),
+              : f.type == FT.time
+                  ? (s(v).length >= 5 ? s(v).substring(0, 5) : s(v))
+                  : (f.type == FT.number && v != null ? _numTxt(v) : s(v)),
         );
         if (f.type == FT.password) _hide[f.key] = true;
       }
@@ -297,6 +314,19 @@ class _FormSheetState extends State<_FormSheet> {
       return 'Las contraseñas no coinciden';
     }
     return null;
+  }
+
+  /// Unidad de medida de la opción elegida en el campo que define la unidad de [f] (null si no aplica).
+  String? _unidad(FieldDef f) {
+    final u = f.unidadDe == null ? null : f.unidades[_sel[f.unidadDe]];
+    return u == null || u.trim().isEmpty ? null : u.trim();
+  }
+
+  String? _ayudaUnidad(FieldDef f) {
+    if (f.unidadDe == null) return f.helper;
+    final u = _unidad(f);
+    if (u != null) return 'Unidad de medida: $u';
+    return _sel[f.unidadDe] == null ? 'La unidad de medida aparece al elegir el insumo' : 'Este insumo no tiene unidad registrada';
   }
 
   Widget _field(FieldDef f, bool last) {
@@ -438,6 +468,30 @@ class _FormSheetState extends State<_FormSheet> {
             if (p != null && mounted) setState(() => ctrl.text = ymd(p));
           },
         );
+      case FT.time:
+        final ctrl = _ctrl[f.key]!;
+        return TextFormField(
+          controller: ctrl,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: f.label,
+            helperText: f.helper,
+            suffixIcon: const Icon(Icons.access_time),
+          ),
+          validator: (v) => _validar(f, v),
+          onTap: () async {
+            final partes = ctrl.text.split(':');
+            final inicial = TimeOfDay(
+              hour: int.tryParse(partes.first) ?? 7,
+              minute: partes.length > 1 ? int.tryParse(partes[1]) ?? 0 : 0,
+            );
+            final p = await showTimePicker(context: context, initialTime: inicial);
+            if (p != null && mounted) {
+              setState(() => ctrl.text =
+                  '${p.hour.toString().padLeft(2, '0')}:${p.minute.toString().padLeft(2, '0')}');
+            }
+          },
+        );
       default:
         final pass = f.type == FT.password;
         return TextFormField(
@@ -461,7 +515,8 @@ class _FormSheetState extends State<_FormSheet> {
           },
           decoration: InputDecoration(
             labelText: f.label,
-            helperText: f.helper,
+            helperText: _ayudaUnidad(f),
+            suffixText: _unidad(f),
             suffixIcon: pass
                 ? IconButton(
                     tooltip: (_hide[f.key] ?? true) ? 'Mostrar' : 'Ocultar',
@@ -495,12 +550,10 @@ class _FormSheetState extends State<_FormSheet> {
       }
       final t = _ctrl[f.key]!.text.trim();
       if (t.isEmpty) {
-        // En edición, una fecha borrada se envía como null para limpiarla.
-        if (widget.edit &&
-            f.type == FT.date &&
-            s(widget.initial[f.key]).isNotEmpty) {
-          out[f.key] = null;
-        }
+        // En edición, una fecha borrada (o un campo marcado como vaciable) se envía como null para limpiarlo.
+        final borrable = f.type == FT.date ||
+            (f.vaciable && !f.required && const [FT.text, FT.multiline, FT.number, FT.phone].contains(f.type));
+        if (widget.edit && borrable && s(widget.initial[f.key]).isNotEmpty) out[f.key] = null;
         continue;
       }
       out[f.key] = f.type == FT.number ? num.parse(t.replaceAll(',', '.')) : t;
