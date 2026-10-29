@@ -98,10 +98,11 @@ class SmsService {
     unawaited(_drenar()); // SMS de datos que llegaron con la app cerrada
     final p = await SharedPreferences.getInstance();
     if (!pedir && p.getBool('sms_ok') != true) return;
-    try {
-      _permiso = (await Telephony.instance.requestPhoneAndSmsPermissions) ?? false;
-    } catch (_) {
-      _permiso = false;
+    if (!(_permiso && _escuchando)) {
+      // El plugin solo atiende UNA petición de permisos a la vez (guarda un único `result`): una
+      // segunda llamada simultánea nunca respondería. Por eso todas comparten el mismo Future.
+      _pidiendo ??= _pedirPermisos().whenComplete(() => _pidiendo = null);
+      _permiso = await _pidiendo!;
     }
     await p.setBool('sms_ok', _permiso);
     if (!_permiso || _escuchando) return;
@@ -117,6 +118,16 @@ class SmsService {
       );
     } catch (_) {
       _escuchando = false;
+    }
+  }
+
+  Future<bool>? _pidiendo;
+
+  Future<bool> _pedirPermisos() async {
+    try {
+      return (await Telephony.instance.requestPhoneAndSmsPermissions.timeout(const Duration(seconds: 60))) ?? false;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -152,7 +163,7 @@ class SmsService {
 
     // El SMS sale por la línea móvil, no por internet: sin señal (o en modo avión) no se puede.
     try {
-      final st = await Telephony.instance.serviceState;
+      final st = await Telephony.instance.serviceState.timeout(const Duration(seconds: 3));
       if (st == ServiceState.POWER_OFF || st == ServiceState.OUT_OF_SERVICE) {
         throw 'Sin señal de celular. El SMS necesita señal móvil: no funciona en modo avión ni sin cobertura. Apaga solo el Wi-Fi y los datos.';
       }
@@ -192,8 +203,11 @@ class SmsService {
     for (final d in partes) {
       Map<dynamic, dynamic>? r;
       try {
-        r = await _canal.invokeMethod<Map<dynamic, dynamic>>(
-            'enviar', {'destino': destino, 'puerto': kSmsPuerto, 'datos': d});
+        r = await _canal
+            .invokeMethod<Map<dynamic, dynamic>>('enviar', {'destino': destino, 'puerto': kSmsPuerto, 'datos': d})
+            .timeout(const Duration(seconds: 25));
+      } on TimeoutException {
+        throw 'El SMS no recibió respuesta de Android. Revisa la señal móvil y el saldo de la SIM.';
       } on MissingPluginException {
         throw 'Falta el módulo nativo del SMS de datos (ver PASOS_SMS_OCULTO.md).';
       } on PlatformException {
