@@ -42,6 +42,9 @@ class Tarea extends AgroModel {
   String get prioridad => (raw['prioridad'] ?? 'Media').toString();
   String get etapa => (raw['etapa'] ?? '').toString();
 
+  /// Tiene un cultivo asignado (de él depende registrar lo recolectado).
+  bool get tieneCultivo => raw['idcultivo'] != null;
+
   /// Tarea de cosecha: al completarla se pide lo recolectado, que queda en Producción › Cosechas.
   bool get esCosecha => etapa == 'Cosecha' || actividad.toLowerCase().contains('cosecha');
 

@@ -30,8 +30,11 @@ Future<List<FieldDef>> camposTarea() async => [
         ],
       ),
       const FieldDef('fechaprogramada', 'Fecha programada', type: FT.date),
-      FieldDef('idcultivo', 'Cultivo', type: FT.select, options: await operacionService.cultivosOpc()),
-      const FieldDef('costototal', 'Costo estimado (COP)', type: FT.number, min: 0),
+      FieldDef('idcultivo', 'Cultivo',
+          type: FT.select,
+          options: await operacionService.cultivosOpc(),
+          helper: 'Obligatorio en tareas de cosecha: ahí queda registrado lo recolectado'),
+      const FieldDef('costototal', 'Costo estimado (COP)', type: FT.number, min: 0, vaciable: true),
     ];
 
 /// Acciones de una tarea compartidas por la lista y el detalle.
@@ -113,6 +116,16 @@ class AccionesTarea {
   /// En una tarea de cosecha pregunta cuánto se recolectó. null = cancelado; vacío = no aplica.
   static Future<Map<String, dynamic>?> pedirCosecha(BuildContext c, Tarea t) async {
     if (!t.esCosecha || t.asignacion == null) return const {};
+    if (!t.tieneCultivo) {
+      // Sin cultivo no hay a qué cosecha pertenezca lo recolectado: se avisa en vez de perderlo en silencio
+      final seguir = await confirmar(
+        c,
+        'Esta tarea de cosecha no tiene cultivo, así que lo recolectado no quedará en Cosechas. Edítala y elige el cultivo para poder registrarlo.',
+        titulo: 'Tarea sin cultivo',
+        ok: 'Completar igual',
+      );
+      return seguir ? const {} : null;
+    }
     return showForm(
       c,
       'Lo recolectado',

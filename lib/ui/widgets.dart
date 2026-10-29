@@ -165,6 +165,10 @@ class FieldDef {
   /// Unidad de medida de cada opción del campo [unidadDe] (clave de la opción → «kg», «L»…).
   final Map<dynamic, String> unidades;
 
+  /// Al EDITAR, dejar este campo opcional vacío lo borra (se envía null). Sin esto, un campo vacío se
+  /// ignora y conserva el valor que ya tenía. Solo aplica a texto, números y teléfonos no obligatorios.
+  final bool vaciable;
+
   const FieldDef(
     this.key,
     this.label, {
@@ -180,6 +184,7 @@ class FieldDef {
     this.min,
     this.unidadDe,
     this.unidades = const {},
+    this.vaciable = false,
   });
 }
 
@@ -539,10 +544,10 @@ class _FormSheetState extends State<_FormSheet> {
       }
       final t = _ctrl[f.key]!.text.trim();
       if (t.isEmpty) {
-        // En edición, una fecha borrada se envía como null para limpiarla.
-        if (widget.edit &&
-            f.type == FT.date &&
-            s(widget.initial[f.key]).isNotEmpty) out[f.key] = null;
+        // En edición, una fecha borrada (o un campo marcado como vaciable) se envía como null para limpiarlo.
+        final borrable = f.type == FT.date ||
+            (f.vaciable && !f.required && const [FT.text, FT.multiline, FT.number, FT.phone].contains(f.type));
+        if (widget.edit && borrable && s(widget.initial[f.key]).isNotEmpty) out[f.key] = null;
         continue;
       }
       out[f.key] = f.type == FT.number ? num.parse(t.replaceAll(',', '.')) : t;

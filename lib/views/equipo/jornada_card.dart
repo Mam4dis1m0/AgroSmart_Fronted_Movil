@@ -40,6 +40,7 @@ class _JornadaCardState extends State<JornadaCard> {
         FieldDef('jornadapersonas', 'Personas que trabajan en un día normal',
             type: FT.number,
             min: 1,
+            vaciable: true,
             helper: 'Si lo dejas vacío se cuentan todos los empleados activos'),
       ],
       initial: {

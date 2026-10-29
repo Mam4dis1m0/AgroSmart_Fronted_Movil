@@ -167,8 +167,8 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
 
   Future<void> _horas(Map<String, dynamic> asig) async {
     final d = await showForm(context, 'Tiempo trabajado', const [
-      FieldDef('horastrabajadas', 'Horas trabajadas', type: FT.number, min: 0),
-      FieldDef('jornadastrabajadas', 'Jornales trabajados', type: FT.number, min: 0),
+      FieldDef('horastrabajadas', 'Horas trabajadas', type: FT.number, min: 0, vaciable: true,
+          helper: 'Si lo dejas vacío se usa el tiempo del cronómetro. Solo sirve para repartir el costo entre las tareas; no cambia lo que se te paga'),
     ], initial: asig, edit: true);
     if (d == null || !mounted) return;
     if (await run(context, () => operacionService.actualizarAsignacion((asig['idasigtarea'] as num).toInt(), d), ok: 'Tiempo registrado')) {
@@ -283,7 +283,6 @@ class _TareaDetallePageState extends State<TareaDetallePage> {
                           if (asig['fechafin'] != null && t.inicioReal != null)
                             InfoRow('Duración', _duracion(DateTime.parse('${asig['fechafin']}').toLocal().difference(t.inicioReal!))),
                           InfoRow('Horas trabajadas', cant(asig['horastrabajadas'])),
-                          InfoRow('Jornales trabajados', cant(asig['jornadastrabajadas'])),
                           const SizedBox(height: 6),
                           Align(
                             alignment: Alignment.centerRight,
