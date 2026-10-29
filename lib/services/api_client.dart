@@ -37,8 +37,9 @@ class Api {
         final path = e.requestOptions.path;
         final esLogin =
             path.startsWith('/usuarios/login') || path.contains('/password');
-        if (e.response?.statusCode == 401 && token != null && !esLogin)
+        if (e.response?.statusCode == 401 && token != null && !esLogin) {
           onUnauthorized?.call();
+        }
         h.next(e);
       },
     ));
@@ -179,8 +180,9 @@ class Api {
       }
       final code = e.response?.statusCode;
       // 401 con sesión abierta = token vencido. 401 al iniciar sesión = datos incorrectos.
-      if (code == 401 && i.token != null)
+      if (code == 401 && i.token != null) {
         return 'Tu sesión expiró. Vuelve a iniciar sesión.';
+      }
       if (d is Map && d['message'] != null) {
         final m = d['message'];
         return m is List ? m.join('\n') : m.toString();
@@ -271,8 +273,9 @@ class _OfflineInterceptor extends Interceptor {
     if (!{'POST', 'PUT', 'PATCH', 'DELETE'}.contains(o.method)) return false;
     if (o.extra['noQueue'] == true || api.token == null) return false;
     if (_noEncolar.any(o.path.startsWith)) return false;
-    if (o.path.endsWith('/pagar') || o.path.endsWith('/confirmar'))
+    if (o.path.endsWith('/pagar') || o.path.endsWith('/confirmar')) {
       return false;
+    }
     final d = o.data;
     return d == null ||
         d is Map ||

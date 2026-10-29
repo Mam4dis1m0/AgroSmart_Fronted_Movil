@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
 import 'package:agrosmart_proto/services/contadores.dart';

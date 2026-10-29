@@ -38,8 +38,9 @@ class _CatalogoTabState extends State<CatalogoTab>
   void initState() {
     super.initState();
     _scroll.addListener(() {
-      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 300)
+      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 300) {
         _cargar();
+      }
     });
     _q.addListener(() => setState(() {}));
     _reiniciar();
@@ -99,9 +100,10 @@ class _CatalogoTabState extends State<CatalogoTab>
       if (_radio == 0) _radio = 50;
     }
     if (_lat == null || _lng == null) {
-      if (mounted)
+      if (mounted) {
         snack(context,
             'Configura tu latitud y longitud en Perfil › Alertas de ofertas cercanas');
+      }
       return;
     }
     setState(() => _cerca = true);
@@ -317,7 +319,7 @@ class _CatalogoTabState extends State<CatalogoTab>
           )
         ];
       }
-      if (_error != null)
+      if (_error != null) {
         return [
           SliverFillRemaining(
             hasScrollBody: false,
@@ -325,6 +327,7 @@ class _CatalogoTabState extends State<CatalogoTab>
                 AgroError(message: Api.errorMsg(_error!), onRetry: _reiniciar),
           )
         ];
+      }
       return [
         SliverFillRemaining(
           hasScrollBody: false,

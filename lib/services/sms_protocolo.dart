@@ -34,7 +34,7 @@ class SmsFragmento {
 /// Parte [texto] en SMS de datos de máximo [kSmsMaxDatos] bytes. Nunca corta un carácter
 /// (tildes, ñ o emojis) por la mitad. Lanza [FormatException] si no cabe en [kSmsMaxPartes].
 List<Uint8List> codificarSms(int idhilo, int idmsg, String texto) {
-  final maxTexto = kSmsMaxDatos - _kCabecera;
+  const maxTexto = kSmsMaxDatos - _kCabecera;
   final trozos = <List<int>>[];
   var actual = <int>[];
   for (final r in texto.runes) {

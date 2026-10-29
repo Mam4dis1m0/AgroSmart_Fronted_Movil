@@ -39,8 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => _sinRed = v);
     });
     _netSub = Connectivity().onConnectivityChanged.listen((r) {
-      if (mounted)
+      if (mounted) {
         setState(() => _sinRed = r.every((x) => x == ConnectivityResult.none));
+      }
     });
   }
 
@@ -48,8 +49,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _recordarCorreo() async {
     final p = await SharedPreferences.getInstance();
     final e = p.getString('ultimo_email');
-    if (e != null && e.isNotEmpty && _email.text.isEmpty && mounted)
+    if (e != null && e.isNotEmpty && _email.text.isEmpty && mounted) {
       _email.text = e;
+    }
   }
 
   @override
@@ -168,7 +170,9 @@ class _LoginScreenState extends State<LoginScreen> {
         okLabel: 'Enviar código');
     if (d == null || !mounted) return;
     if (!await run(context, () => authService.olvideContrasena(s(d['email'])),
-        ok: 'Si el correo está registrado, recibirás un código.')) return;
+        ok: 'Si el correo está registrado, recibirás un código.')) {
+      return;
+    }
     if (!mounted) return;
     final r = await showForm(
         context,
@@ -446,7 +450,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 final t = (v ?? '').trim();
                                 if (t.isEmpty) return 'Ingresa tu correo';
                                 if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                                    .hasMatch(t)) return 'Correo no válido';
+                                    .hasMatch(t)) {
+                                  return 'Correo no válido';
+                                }
                                 return null;
                               },
                               decoration: const InputDecoration(

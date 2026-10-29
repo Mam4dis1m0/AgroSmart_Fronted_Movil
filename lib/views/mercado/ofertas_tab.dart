@@ -170,7 +170,9 @@ class MisOfertasTab extends StatelessWidget {
                   ctx,
                   () => marketplaceService.actualizarListado(
                       item['idlistado'], {'estado': 'PUBLICADO'}),
-                  ok: 'Oferta publicada')) reload();
+                  ok: 'Oferta publicada')) {
+                reload();
+              }
             }, icon: Icons.public),
           if (est == 'PUBLICADO')
             RowAction('Pausar', (ctx, item, reload) async {
@@ -178,7 +180,9 @@ class MisOfertasTab extends StatelessWidget {
                   ctx,
                   () => marketplaceService.actualizarListado(
                       item['idlistado'], {'estado': 'PAUSADO'}),
-                  ok: 'Oferta pausada')) reload();
+                  ok: 'Oferta pausada')) {
+                reload();
+              }
             }, icon: Icons.pause_circle_outline),
           RowAction('Agregar foto', _agregarFoto,
               icon: Icons.add_a_photo_outlined),
@@ -194,7 +198,9 @@ class MisOfertasTab extends StatelessWidget {
                   ctx,
                   () => marketplaceService.actualizarListado(
                       item['idlistado'], {'fotos': <String>[]}),
-                  ok: 'Fotos eliminadas')) reload();
+                  ok: 'Fotos eliminadas')) {
+                reload();
+              }
             }, icon: Icons.hide_image_outlined, destructive: true),
           if (l['destacado'] != true && est == 'PUBLICADO')
             RowAction('Destacar (Premium)', (ctx, item, reload) async {
@@ -206,7 +212,9 @@ class MisOfertasTab extends StatelessWidget {
               if (!ctx.mounted) return;
               if (await run(ctx,
                   () => marketplaceService.destacarListado(item['idlistado']),
-                  ok: 'Oferta destacada')) reload();
+                  ok: 'Oferta destacada')) {
+                reload();
+              }
             }, icon: Icons.star_outline),
         ];
       },
@@ -223,11 +231,11 @@ class _SellerMarketBanner extends StatelessWidget {
       padding: const EdgeInsets.all(17),
       child: Row(
         children: [
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'TU FINCA, UN MERCADO MÁS GRANDE',
                   style: TextStyle(
                     color: AgroColors.mintPale,
@@ -236,8 +244,8 @@ class _SellerMarketBanner extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 7),
-                const Text(
+                SizedBox(height: 7),
+                Text(
                   'Publica lo que cosechas',
                   style: TextStyle(
                     color: Colors.white,
@@ -245,8 +253,8 @@ class _SellerMarketBanner extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Text(
+                SizedBox(height: 4),
+                Text(
                   'Una buena foto ayuda a que tu producto se destaque y llegue a más compradores.',
                   style: TextStyle(
                     color: AgroColors.mintPale,
