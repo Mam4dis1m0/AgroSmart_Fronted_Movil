@@ -1,0 +1,4 @@
+<!-- Agrega estas lineas antes de <application> en android/app/src/main/AndroidManifest.xml -->
+<uses-permission android:name="android.permission.SEND_SMS" />
+<uses-permission android:name="android.permission.RECEIVE_SMS" />
+<uses-permission android:name="android.permission.READ_SMS" />

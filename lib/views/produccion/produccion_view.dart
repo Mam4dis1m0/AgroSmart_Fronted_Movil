@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:agrosmart_proto/views/voz/voz_asistente_view.dart';
 import 'package:agrosmart_proto/providers/session_provider.dart';
 import 'package:agrosmart_proto/providers/app_providers.dart';
 import 'package:agrosmart_proto/theme.dart';
@@ -25,7 +26,9 @@ class ProduccionPage extends StatelessWidget {
   const ProduccionPage({super.key, this.initialIndex = 0});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ConVoz(child: _tabs(context));
+
+  Widget _tabs(BuildContext context) {
     return TabsPage(initialIndex: initialIndex, tabs: {
       'Guía': const GuiaCultivosPage(),
       'Lotes': CrudList(

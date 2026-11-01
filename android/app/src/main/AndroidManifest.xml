@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS"/>
     <uses-permission android:name="android.permission.READ_SMS"/>
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="AgroSmart"
         android:name="${applicationName}"
@@ -34,6 +34,20 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- SMS de DATOS de AgroSmart (puerto 6170 = kSmsPuerto en sms_protocolo.dart).
+             Sin este receptor Android no entrega nada a la app: los SMS se enviaban pero nunca
+             llegaban al chat. Android los entrega solo a quien registra el puerto, así que no
+             aparecen en la app de Mensajes. -->
+        <receiver
+            android:name=".DataSmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.intent.action.DATA_SMS_RECEIVED"/>
+                <data android:scheme="sms" android:host="*" android:port="6170"/>
+            </intent-filter>
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

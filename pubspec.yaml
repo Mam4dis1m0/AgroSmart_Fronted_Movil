@@ -24,12 +24,16 @@ dependencies:
   another_telephony: ^0.4.1
   cached_network_image: ^3.4.1
   crypto: ^3.0.3
+  record: ^6.0.0
+  audioplayers: ^6.1.0
+  # Asistente por voz
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-  image_picker_platform_interface: ^2.11.2
 
 flutter:
   uses-material-design: true

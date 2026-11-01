@@ -12,11 +12,6 @@ import 'sms_protocolo.dart';
 
 final _mensajeria = MensajeriaService();
 
-/// true: el mensaje sale como SMS de DATOS: solo lo recibe AgroSmart y NO aparece en la app de
-/// Mensajes. false: SMS de texto normal `AS|id|texto` (visible en Mensajes); sirve para comparar
-/// si algún operador bloqueara los SMS de datos.
-const bool kSmsSoloDatos = true;
-
 /// Puente con el código nativo (DataSmsPlugin.kt): envía SMS de datos y entrega los recibidos.
 const MethodChannel _canal = MethodChannel('agrosmart/datasms');
 
@@ -83,6 +78,19 @@ class SmsService {
 
   bool get disponible => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  /// true (por defecto): SMS de DATOS, solo lo recibe AgroSmart y NO aparece en la app de Mensajes.
+  /// false: SMS de texto normal `AS|id|texto` (visible en Mensajes). Se cambia desde el menú del chat:
+  /// sirve si alguna operadora no entrega los SMS de datos. Recibir funciona en los dos modos.
+  Future<bool> soloDatos() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool('sms_modo_texto') != true;
+  }
+
+  Future<void> fijarSoloDatos(bool v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool('sms_modo_texto', !v);
+  }
+
   Future<SharedPreferences> _prefs() async {
     final p = await SharedPreferences.getInstance();
     await p.reload(); // el receptor en segundo plano escribe en otro isolate
@@ -98,11 +106,10 @@ class SmsService {
     unawaited(_drenar()); // SMS de datos que llegaron con la app cerrada
     final p = await SharedPreferences.getInstance();
     if (!pedir && p.getBool('sms_ok') != true) return;
-    if (!(_permiso && _escuchando)) {
-      // El plugin solo atiende UNA petición de permisos a la vez (guarda un único `result`): una
-      // segunda llamada simultánea nunca respondería. Por eso todas comparten el mismo Future.
-      _pidiendo ??= _pedirPermisos().whenComplete(() => _pidiendo = null);
-      _permiso = await _pidiendo!;
+    try {
+      _permiso = (await Telephony.instance.requestPhoneAndSmsPermissions) ?? false;
+    } catch (_) {
+      _permiso = false;
     }
     await p.setBool('sms_ok', _permiso);
     if (!_permiso || _escuchando) return;
@@ -118,16 +125,6 @@ class SmsService {
       );
     } catch (_) {
       _escuchando = false;
-    }
-  }
-
-  Future<bool>? _pidiendo;
-
-  Future<bool> _pedirPermisos() async {
-    try {
-      return (await Telephony.instance.requestPhoneAndSmsPermissions.timeout(const Duration(seconds: 60))) ?? false;
-    } catch (_) {
-      return false;
     }
   }
 
@@ -163,7 +160,7 @@ class SmsService {
 
     // El SMS sale por la línea móvil, no por internet: sin señal (o en modo avión) no se puede.
     try {
-      final st = await Telephony.instance.serviceState.timeout(const Duration(seconds: 3));
+      final st = await Telephony.instance.serviceState;
       if (st == ServiceState.POWER_OFF || st == ServiceState.OUT_OF_SERVICE) {
         throw 'Sin señal de celular. El SMS necesita señal móvil: no funciona en modo avión ni sin cobertura. Apaga solo el Wi-Fi y los datos.';
       }
@@ -171,7 +168,7 @@ class SmsService {
       rethrow;
     } catch (_) {}
 
-    if (kSmsSoloDatos) {
+    if (await soloDatos()) {
       await _enviarDatos(tel, idhilo, texto);
     } else {
       await _enviarTexto(tel, idhilo, texto);
@@ -203,11 +200,8 @@ class SmsService {
     for (final d in partes) {
       Map<dynamic, dynamic>? r;
       try {
-        r = await _canal
-            .invokeMethod<Map<dynamic, dynamic>>('enviar', {'destino': destino, 'puerto': kSmsPuerto, 'datos': d})
-            .timeout(const Duration(seconds: 25));
-      } on TimeoutException {
-        throw 'El SMS no recibió respuesta de Android. Revisa la señal móvil y el saldo de la SIM.';
+        r = await _canal.invokeMethod<Map<dynamic, dynamic>>(
+            'enviar', {'destino': destino, 'puerto': kSmsPuerto, 'datos': d});
       } on MissingPluginException {
         throw 'Falta el módulo nativo del SMS de datos (ver PASOS_SMS_OCULTO.md).';
       } on PlatformException {
@@ -219,7 +213,7 @@ class SmsService {
     }
   }
 
-  /// SMS de texto normal (visible en la app de Mensajes). Solo si [kSmsSoloDatos] es false.
+  /// SMS de texto normal (visible en la app de Mensajes). Solo si el modo de datos está apagado.
   Future<void> _enviarTexto(String tel, int idhilo, String texto) async {
     final largo = texto.length > 60;
     final enviado = Completer<bool>();
@@ -325,11 +319,11 @@ Future<Map<String, dynamic>?> _procesarEntrante(String? address, String? body, i
   final p = await SharedPreferences.getInstance();
   await p.reload();
   final scope = p.getString('sms_scope') ?? '';
+  if (scope.isEmpty) return null; // sesión desconocida en este celular
   final tel = p.getString(_k(scope, idhilo, 'tel'));
-  // El chat debe existir en este celular. Si el número no coincide con el del perfil (otra SIM,
-  // datos de prueba) el mensaje se guarda igual, marcado como «sin verificar».
-  if (tel == null) return null;
-  final verificado = _digitos(address) == _digitos(tel);
+  // Si el número no coincide con el del perfil (otra SIM) o aún no se conoce el teléfono del
+  // contacto (chat que nunca se abrió con internet), el mensaje se guarda igual, «sin verificar».
+  final verificado = tel != null && _digitos(address) == _digitos(tel);
   final texto = partes.sublist(2).join('|');
   final ms = date ?? DateTime.now().millisecondsSinceEpoch;
   final m = <String, dynamic>{
@@ -363,8 +357,8 @@ Future<Map<String, dynamic>?> _procesarDatos(String address, Uint8List datos, in
   final p = await SharedPreferences.getInstance();
   await p.reload();
   final scope = p.getString('sms_scope') ?? '';
+  if (scope.isEmpty) return null; // sesión desconocida en este celular
   final tel = p.getString(_k(scope, f.idhilo, 'tel'));
-  if (tel == null) return null; // chat desconocido en este celular
   final origen = _digitos(address);
   final ahora = DateTime.now().millisecondsSinceEpoch;
   final ens = SmsEnsamblador(_leerMapa(p, 'sms_frag'));
@@ -380,7 +374,7 @@ Future<Map<String, dynamic>?> _procesarDatos(String address, Uint8List datos, in
     'createdAt': DateTime.fromMillisecondsSinceEpoch(ms).toIso8601String(),
     'sms': true,
     'smsId': 'in-${f.idmsg}-$origen',
-    if (origen != _digitos(tel)) 'sinVerificar': true,
+    if (tel == null || origen != _digitos(tel)) 'sinVerificar': true,
   };
   if (!await _agregarLocal(scope, f.idhilo, m)) return null;
   return {'idhilo': f.idhilo, 'mensaje': m};

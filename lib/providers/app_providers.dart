@@ -1,3 +1,4 @@
+import '../services/adjuntos_service.dart';
 import '../services/auth_service.dart';
 import '../services/aviso_service.dart';
 import '../services/chat_service.dart';
@@ -25,3 +26,4 @@ final reporteService = ReporteService();
 final chatService = ChatService();
 final mensajeriaService = MensajeriaService();
 final smsService = SmsService();
+final adjuntosService = AdjuntosService();
