@@ -2,11 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:agrosmart_proto/models/operacion.dart';
 import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/services/operacion_service.dart';
+import 'package:agrosmart_proto/services/secure_storage.dart';
 
 /// Simula un celular sin conexión: toda petición falla como si no hubiera red.
 class _SinRed implements HttpClientAdapter {
@@ -42,15 +43,16 @@ Map<String, dynamic> _tarea(
       ],
     };
 
-Future<Map<String, dynamic>> _cacheTarea(SharedPreferences p) async =>
-    (jsonDecode(p.getString(_clave('/api/v1/tareas/7'))!) as Map)
-        .cast<String, dynamic>();
+Future<Map<String, dynamic>> _cacheTarea() async {
+  final raw = await secureStorage.read(key: _clave('/api/v1/tareas/7'));
+  return (jsonDecode(raw!) as Map).cast<String, dynamic>();
+}
 
 void main() {
   late HttpClientAdapter original;
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({
+    FlutterSecureStorage.setMockInitialValues({
       _clave('/api/v1/tareas'): jsonEncode([_tarea()]),
       _clave('/api/v1/tareas/7'): jsonEncode(_tarea()),
       _clave('/detalle-tarea/tarea/7'): jsonEncode([]),
@@ -76,13 +78,13 @@ void main() {
       () async {
     await OperacionService().iniciarAsignacion(70);
 
-    final p = await SharedPreferences.getInstance();
-    final cola = jsonDecode(p.getString('cola_offline')!) as List;
+    final cola =
+        jsonDecode((await secureStorage.read(key: 'cola_offline'))!) as List;
     expect(cola, hasLength(1));
     expect(cola.single['path'], '/api/v1/tareas/70/iniciar');
     expect(DateTime.tryParse(cola.single['data']['at']), isNotNull);
 
-    final t = Tarea(await _cacheTarea(p));
+    final t = Tarea(await _cacheTarea());
     expect(t.estado, 'En progreso');
     expect(t.enCurso, isTrue);
     expect(t.inicioReal, isNotNull);
@@ -95,7 +97,7 @@ void main() {
         .toUtc()
         .subtract(const Duration(hours: 2))
         .toIso8601String();
-    SharedPreferences.setMockInitialValues({
+    FlutterSecureStorage.setMockInitialValues({
       _clave('/api/v1/tareas'): jsonEncode([
         _tarea(
             estado: 'En progreso',
@@ -108,12 +110,13 @@ void main() {
 
     await OperacionService().completarAsignacion(70);
 
-    final p = await SharedPreferences.getInstance();
-    final t = Tarea(await _cacheTarea(p));
+    final t = Tarea(await _cacheTarea());
     expect(t.completada, isTrue);
     expect(t.enCurso, isFalse);
     expect(t.asignacion!['horastrabajadas'], closeTo(2, 0.05));
-    final lista = jsonDecode(p.getString(_clave('/api/v1/tareas'))!) as List;
+    final lista =
+        jsonDecode((await secureStorage.read(key: _clave('/api/v1/tareas')))!)
+            as List;
     expect(lista.single['estado'], 'Completado');
   });
 
@@ -125,14 +128,14 @@ void main() {
         {'idasigtarea': 70, 'estado': 'Asignado'},
         {'idasigtarea': 71, 'estado': 'Asignado'},
       ];
-    SharedPreferences.setMockInitialValues({
+    FlutterSecureStorage.setMockInitialValues({
       _clave('/api/v1/tareas'): jsonEncode([dos]),
       _clave('/api/v1/tareas/7'): jsonEncode(dos),
     });
 
     await OperacionService().completarAsignacion(70);
 
-    final t = Tarea(await _cacheTarea(await SharedPreferences.getInstance()));
+    final t = Tarea(await _cacheTarea());
     expect(t.completada, isFalse);
     expect(t.asignaciones.firstWhere((a) => a['idasigtarea'] == 70)['estado'],
         'Completado');
@@ -145,14 +148,13 @@ void main() {
         7, {'idinsumo': 11, 'cantidadusada': 5},
         nombre: 'Urea', unidad: 'kg');
 
-    final p = await SharedPreferences.getInstance();
-    final usados =
-        jsonDecode(p.getString(_clave('/detalle-tarea/tarea/7'))!) as List;
+    final usados = jsonDecode(
+            (await secureStorage.read(key: _clave('/detalle-tarea/tarea/7')))!)
+        as List;
     expect(usados.single['idinsumo']['nombre'], 'Urea');
     expect(usados.single['cantidadusada'], 5);
-    final sugeridos =
-        jsonDecode(p.getString(_clave('/api/v1/tareas/7/insumos-sugeridos'))!)
-            as List;
+    final sugeridos = jsonDecode((await secureStorage.read(
+        key: _clave('/api/v1/tareas/7/insumos-sugeridos')))!) as List;
     expect(sugeridos.map((x) => x['idinsumo']), [12]);
   });
 
@@ -176,14 +178,14 @@ void main() {
     );
 
     expect(enCola, isTrue);
-    final p = await SharedPreferences.getInstance();
     final cola =
-        (jsonDecode(p.getString('cola_offline')!) as List).single as Map;
+        (jsonDecode((await secureStorage.read(key: 'cola_offline'))!) as List)
+            .single as Map;
     expect(cola['tipo'], 'subida');
     expect(cola['path'], '/api/v1/tareas/7/completar-con-evidencia');
     final ruta = cola['archivo']['ruta'] as String;
     expect(File(ruta).existsSync(), isTrue);
-    expect(Tarea(await _cacheTarea(p)).completada, isTrue);
+    expect(Tarea(await _cacheTarea()).completada, isTrue);
 
     // Vuelve la red: se reenvía la foto con la hora original y el archivo temporal se borra
     final enviada = <RequestOptions>[];
@@ -222,9 +224,9 @@ void main() {
       isTrue,
     );
 
-    final p = await SharedPreferences.getInstance();
     final cola =
-        (jsonDecode(p.getString('cola_offline')!) as List).single as Map;
+        (jsonDecode((await secureStorage.read(key: 'cola_offline'))!) as List)
+            .single as Map;
     final rutaLocal = cola['archivo']['ruta'] as String;
     expect(File(rutaLocal).existsSync(), isTrue);
     expect(cola['path'], '/api/v1/tareas/7/evidencias');
