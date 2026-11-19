@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 import 'mensajeria_service.dart';
+import 'secure_storage.dart';
 import 'sms_protocolo.dart';
 
 final _mensajeria = MensajeriaService();
@@ -131,20 +132,20 @@ class SmsService {
   }
 
   Future<String?> telefonoDe(int idhilo) async {
-    final p = await _prefs();
-    return p.getString(_k(Api.i.cacheScope, idhilo, 'tel'));
+    await _prefs();
+    return _sLeer(_k(Api.i.cacheScope, idhilo, 'tel'));
   }
 
   Future<void> guardarTelefono(int idhilo, String? tel) async {
     if (tel == null || tel.trim().isEmpty) return;
-    final p = await _prefs();
-    await p.setString(_k(Api.i.cacheScope, idhilo, 'tel'), tel.trim());
+    await _prefs();
+    await _sGuardar(_k(Api.i.cacheScope, idhilo, 'tel'), tel.trim());
   }
 
   Future<List<Map<String, dynamic>>> locales(int idhilo) async {
     await _drenar();
-    final p = await _prefs();
-    final l = _leerLista(p, _k(Api.i.cacheScope, idhilo, 'msgs'));
+    await _prefs();
+    final l = await _leerLista(_k(Api.i.cacheScope, idhilo, 'msgs'));
     l.sort((a, b) => '${a['createdAt']}'.compareTo('${b['createdAt']}'));
     return l;
   }
@@ -252,9 +253,9 @@ class SmsService {
 
   /// Quita de lo local los SMS que el servidor ya tiene (evita duplicados).
   Future<void> reconciliar(int idhilo, List<Map<String, dynamic>> servidor) async {
-    final p = await _prefs();
+    await _prefs();
     final k = _k(Api.i.cacheScope, idhilo, 'msgs');
-    final l = _leerLista(p, k);
+    final l = await _leerLista(k);
     final antes = l.length;
     final ids = {for (final s in servidor) if (s['idcliente'] != null) '${s['idcliente']}'};
     l.removeWhere((m) {
@@ -264,7 +265,7 @@ class SmsService {
       // SMS de texto (sin id): se compara por contenido y autor
       return servidor.any((s) => s['contenido'] == m['contenido'] && (s['mio'] == true) == (m['mio'] == true));
     });
-    if (l.length != antes) await p.setString(k, jsonEncode(l));
+    if (l.length != antes) await _sGuardar(k, jsonEncode(l));
   }
 
   /// Sube al servidor lo que se envió por SMS mientras no había internet.
@@ -279,7 +280,7 @@ class SmsService {
     var n = 0;
     for (final id in ids) {
       final k = _k(scope, id, 'msgs');
-      final l = _leerLista(p, k);
+      final l = await _leerLista(k);
       final pend = l.where((m) => m['mio'] == true && m['pendiente'] == true).toList();
       if (pend.isEmpty) continue;
 
@@ -288,7 +289,7 @@ class SmsService {
       for (final m in pend) {
         m['idcliente'] ??= idClienteSms(id, Random().nextInt(0x100000000));
       }
-      await p.setString(k, jsonEncode(l));
+      await _sGuardar(k, jsonEncode(l));
 
       final List<Map<String, dynamic>> res;
       try {
@@ -318,7 +319,7 @@ class SmsService {
             m['pendiente'] = false; // queda solo como SMS en este celular
         }
       }
-      await p.setString(k, jsonEncode(l));
+      await _sGuardar(k, jsonEncode(l));
     }
     return n;
   }
@@ -345,8 +346,23 @@ String _digitos(String? t) {
 
 String _k(String scope, int idhilo, String campo) => 'sms:$scope:$idhilo:$campo';
 
-List<Map<String, dynamic>> _leerLista(SharedPreferences p, String k) {
-  final raw = p.getString(k);
+/// Los mensajes y teléfonos se guardan CIFRADOS (secure_storage). Lo que una versión anterior
+/// dejó en SharedPreferences (texto plano) se mueve al leerlo por primera vez.
+Future<String?> _sLeer(String k) async {
+  final v = await secureStorage.read(key: k);
+  if (v != null) return v;
+  final p = await SharedPreferences.getInstance();
+  final viejo = p.getString(k);
+  if (viejo == null) return null;
+  await secureStorage.write(key: k, value: viejo);
+  await p.remove(k);
+  return viejo;
+}
+
+Future<void> _sGuardar(String k, String v) => secureStorage.write(key: k, value: v);
+
+Future<List<Map<String, dynamic>>> _leerLista(String k) async {
+  final raw = await _sLeer(k);
   if (raw == null) return [];
   try {
     return (jsonDecode(raw) as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
@@ -359,10 +375,10 @@ Future<bool> _agregarLocal(String scope, int idhilo, Map<String, dynamic> m) asy
   final p = await SharedPreferences.getInstance();
   await p.reload();
   final k = _k(scope, idhilo, 'msgs');
-  final l = _leerLista(p, k);
+  final l = await _leerLista(k);
   if (l.any((x) => x['smsId'] == m['smsId'])) return false;
   l.add(m);
-  await p.setString(k, jsonEncode(l));
+  await _sGuardar(k, jsonEncode(l));
   final ik = 'sms:$scope:hilos';
   final ids = p.getStringList(ik) ?? [];
   if (!ids.contains('$idhilo')) await p.setStringList(ik, [...ids, '$idhilo']);
@@ -380,7 +396,7 @@ Future<Map<String, dynamic>?> _procesarEntrante(String? address, String? body, i
   await p.reload();
   final scope = p.getString('sms_scope') ?? '';
   if (scope.isEmpty) return null; // sesión desconocida en este celular
-  final tel = p.getString(_k(scope, idhilo, 'tel'));
+  final tel = await _sLeer(_k(scope, idhilo, 'tel'));
   // Si el número no coincide con el del perfil (otra SIM) o aún no se conoce el teléfono del
   // contacto (chat que nunca se abrió con internet), el mensaje se guarda igual, «sin verificar».
   final verificado = tel != null && _digitos(address) == _digitos(tel);
@@ -399,8 +415,8 @@ Future<Map<String, dynamic>?> _procesarEntrante(String? address, String? body, i
   return {'idhilo': idhilo, 'mensaje': m};
 }
 
-Map<String, dynamic>? _leerMapa(SharedPreferences p, String k) {
-  final raw = p.getString(k);
+Future<Map<String, dynamic>?> _leerMapa(String k) async {
+  final raw = await _sLeer(k);
   if (raw == null) return null;
   try {
     return (jsonDecode(raw) as Map).cast<String, dynamic>();
@@ -418,13 +434,13 @@ Future<Map<String, dynamic>?> _procesarDatos(String address, Uint8List datos, in
   await p.reload();
   final scope = p.getString('sms_scope') ?? '';
   if (scope.isEmpty) return null; // sesión desconocida en este celular
-  final tel = p.getString(_k(scope, f.idhilo, 'tel'));
+  final tel = await _sLeer(_k(scope, f.idhilo, 'tel'));
   final origen = _digitos(address);
   final ahora = DateTime.now().millisecondsSinceEpoch;
-  final ens = SmsEnsamblador(_leerMapa(p, 'sms_frag'));
+  final ens = SmsEnsamblador(await _leerMapa('sms_frag'));
   final texto = ens.agregar(origen, f, ahora);
   ens.limpiar(ahora);
-  await p.setString('sms_frag', jsonEncode(ens.toJson()));
+  await _sGuardar('sms_frag', jsonEncode(ens.toJson()));
   if (texto == null) return null; // faltan partes
   final ms = date ?? ahora;
   final m = <String, dynamic>{

@@ -308,7 +308,7 @@ class _OfflineInterceptor extends Interceptor {
   @override
   Future<void> onRequest(RequestOptions o, RequestInterceptorHandler h) async {
     if (_cacheable(o)) {
-      final raw = await secureStorage.read(key: _key(o));
+      final raw = await _leerCache(_key(o));
       if (raw != null) {
         // Hay copia guardada: no vale la pena esperar mucho al servidor.
         o.connectTimeout = const Duration(seconds: 6);
@@ -326,7 +326,10 @@ class _OfflineInterceptor extends Interceptor {
       final o = r.requestOptions;
       final ok = (r.statusCode ?? 0) >= 200 && (r.statusCode ?? 0) < 300;
       if (ok && _cacheable(o) && (r.data is Map || r.data is List)) {
-        await secureStorage.write(key: _key(o), value: jsonEncode(r.data));
+        // Guardar la copia es opcional: si el almacenamiento falla, la respuesta igual llega.
+        try {
+          await secureStorage.write(key: _key(o), value: jsonEncode(r.data));
+        } catch (_) {}
       }
     }
     h.next(r);
@@ -338,7 +341,7 @@ class _OfflineInterceptor extends Interceptor {
     if (e.response != null || !_errRed.contains(e.type)) return h.next(e);
 
     if (_cacheable(o)) {
-      final raw = await secureStorage.read(key: _key(o));
+      final raw = await _leerCache(_key(o));
       if (raw != null) return h.resolve(_desdeCache(o, raw));
       return h.next(e);
     }
@@ -359,5 +362,15 @@ class _OfflineInterceptor extends Interceptor {
       ));
     }
     h.next(e);
+  }
+}
+
+/// Lee la copia guardada de un GET. Si el almacenamiento cifrado falla, se trata como
+/// "sin copia" para que la petición siga normalmente.
+Future<String?> _leerCache(String k) async {
+  try {
+    return await secureStorage.read(key: k);
+  } catch (_) {
+    return null;
   }
 }
