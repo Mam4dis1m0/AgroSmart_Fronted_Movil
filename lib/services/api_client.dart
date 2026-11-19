@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'almacen_local.dart';
 import 'cola_offline.dart';
 import 'demo/demo_data.dart';
 
@@ -24,7 +25,7 @@ String defaultBaseUrl() {
 /// Cliente HTTP único. La app NUNCA habla con la base de datos: todo pasa por la API.
 ///
 /// Funciona sin internet:
-///  - Toda lectura (GET) correcta se guarda; si no hay red, se responde con lo guardado.
+///  - Toda lectura (GET) correcta se guarda en Hive; si no hay red, se responde con lo guardado.
 ///  - Crear / editar / borrar sin red se encola y se envía solo al volver la conexión.
 class Api {
   Api._() {
@@ -156,12 +157,11 @@ class Api {
   /// Modifica la copia guardada de un GET (sin parámetros) para que la pantalla refleje lo hecho
   /// sin red mientras la cola no se envía. Si no hay copia no hace nada.
   Future<void> parchearCache(String path, dynamic Function(dynamic datos) cambiar) async {
-    final p = await SharedPreferences.getInstance();
-    final k = 'cache:$cacheScope:$path:{}';
-    final raw = p.getString(k);
+    final k = '$cacheScope:$path:{}';
+    final raw = AlmacenLocal.cache.get(k);
     if (raw == null) return;
     try {
-      await p.setString(k, jsonEncode(cambiar(jsonDecode(raw))));
+      await AlmacenLocal.cache.put(k, jsonEncode(cambiar(jsonDecode(raw))));
     } catch (_) {}
   }
 
@@ -211,12 +211,7 @@ class Api {
   /// Separa el caché por usuario y finca.
   String cacheScope = '';
 
-  Future<void> clearCache() async {
-    final p = await SharedPreferences.getInstance();
-    for (final k in p.getKeys().where((k) => k.startsWith('cache:')).toList()) {
-      await p.remove(k);
-    }
-  }
+  Future<void> clearCache() => AlmacenLocal.cache.clear();
 
   /// GET de listas. Sin red, el interceptor devuelve la última copia guardada.
   Future<List<dynamic>> getList(String path,
@@ -266,7 +261,7 @@ class _OfflineInterceptor extends Interceptor {
     } catch (_) {
       q = o.queryParameters.toString();
     }
-    return 'cache:${api.cacheScope}:${o.path}:$q';
+    return '${api.cacheScope}:${o.path}:$q';
   }
 
   bool _encolable(RequestOptions o) {
@@ -295,8 +290,7 @@ class _OfflineInterceptor extends Interceptor {
   @override
   Future<void> onRequest(RequestOptions o, RequestInterceptorHandler h) async {
     if (_cacheable(o)) {
-      final p = await SharedPreferences.getInstance();
-      final raw = p.getString(_key(o));
+      final raw = AlmacenLocal.cache.get(_key(o));
       if (raw != null) {
         // Hay copia guardada: no vale la pena esperar mucho al servidor.
         o.connectTimeout = const Duration(seconds: 6);
@@ -316,7 +310,7 @@ class _OfflineInterceptor extends Interceptor {
       if (ok && _cacheable(o) && (r.data is Map || r.data is List)) {
         try {
           final s = jsonEncode(r.data);
-          SharedPreferences.getInstance().then((p) => p.setString(_key(o), s));
+          AlmacenLocal.cache.put(_key(o), s);
         } catch (_) {}
       }
     }
@@ -329,8 +323,7 @@ class _OfflineInterceptor extends Interceptor {
     if (e.response != null || !_errRed.contains(e.type)) return h.next(e);
 
     if (_cacheable(o)) {
-      final p = await SharedPreferences.getInstance();
-      final raw = p.getString(_key(o));
+      final raw = AlmacenLocal.cache.get(_key(o));
       if (raw != null) return h.resolve(_desdeCache(o, raw));
       return h.next(e);
     }

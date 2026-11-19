@@ -96,8 +96,8 @@ class DataSmsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             responder(mapOf("ok" to false, "error" to (e.message ?: "excepcion")), receptor)
             return
         }
-        // Si el sistema no avisa en 20 s se da por fallido.
-        ui.postDelayed({ responder(mapOf("ok" to false, "error" to "sin_respuesta"), receptor) }, 20000)
+        // Si el sistema no avisa en 10 s se da por fallido.
+        ui.postDelayed({ responder(mapOf("ok" to false, "error" to "sin_respuesta"), receptor) }, 10000)
     }
 
     @Suppress("DEPRECATION")

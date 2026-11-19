@@ -60,6 +60,14 @@ class MensajeriaService {
     return _map(r.data);
   }
 
+  /// Sube los mensajes enviados por SMS sin internet. El servidor no los duplica (idcliente)
+  /// ni los vuelve a mandar por SMS. Devuelve un resultado por mensaje:
+  /// `{ idcliente, estado: NUEVO | DUPLICADO | RECHAZADO, mensaje?, error? }`.
+  Future<List<Map<String, dynamic>>> sincronizar(List<Map<String, dynamic>> mensajes) async {
+    final r = await Api.i.dio.post('$_msj/sincronizar', data: {'mensajes': mensajes});
+    return [for (final x in (r.data['resultados'] as List)) _map(x)];
+  }
+
   Future<void> marcarLeidos(int idhilo) async {
     await Api.i.dio.patch('$_msj/hilos/$idhilo/leidos');
   }

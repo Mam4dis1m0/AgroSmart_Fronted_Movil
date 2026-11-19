@@ -241,14 +241,15 @@ class _HiloPageState extends State<HiloPage> {
     if (t.isEmpty || _enviando) return;
     setState(() => _enviando = true);
     try {
-      // 1) Sin Wi-Fi ni datos: es el ÚNICO caso en que se usa SMS (dentro de la app).
+      // 1) Sin Wi-Fi ni datos: directo por SMS (dentro de la app).
       if (await Api.i.sinRed()) {
         await _enviarPorSms(t);
         return;
       }
-      // 2) Con red: SIEMPRE por la app (internet). Nunca se cae a SMS en silencio.
+      // 2) Con red: primero por internet. Si el servidor no contesta (datos sin saldo, Wi-Fi
+      //    sin internet, señal débil), se pasa solo a SMS para que la conversación no se corte.
       final ct = CancelToken();
-      final timer = Timer(const Duration(seconds: 20), () => ct.cancel('timeout'));
+      final timer = Timer(const Duration(seconds: 8), () => ct.cancel('timeout'));
       try {
         final m = await mensajeriaService.enviar(_idhilo, t, cancel: ct);
         if (!mounted) return;
@@ -258,14 +259,18 @@ class _HiloPageState extends State<HiloPage> {
         });
       } on DioException catch (e) {
         if (e.response != null) rethrow; // el servidor respondió con un error real
-        // Hay red pero el servidor no responde: el texto se queda en la caja para reintentar
-        // y el SMS se ofrece como opción (no sale solo: tiene costo).
+        // Hay red pero el servidor no responde: se envía por SMS automáticamente.
         if (!mounted) return;
         final puedeSms = smsService.disponible && (_telefono ?? '').isNotEmpty;
+        if (puedeSms) {
+          await _enviarPorSms(t);
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('No se pudo enviar: el servidor no responde. Tu mensaje sigue aquí para reintentar.'),
+          content: Text(smsService.disponible
+              ? 'Sin internet y sin el número del contacto. Abre este chat una vez con internet para poder escribirle por SMS.'
+              : 'No se pudo enviar: el servidor no responde. Tu mensaje sigue aquí para reintentar.'),
           duration: const Duration(seconds: 8),
-          action: puedeSms ? SnackBarAction(label: 'Enviar por SMS', onPressed: () => _enviarPorSms(t)) : null,
         ));
       } finally {
         timer.cancel();

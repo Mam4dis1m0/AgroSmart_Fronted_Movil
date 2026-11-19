@@ -17,8 +17,10 @@ const MethodChannel _canal = MethodChannel('agrosmart/datasms');
 
 /// Mensajería por SMS dentro de la app (solo Android).
 ///
-/// Sin internet, el chat envía el mensaje por SMS al número del contacto, SIN abrir
-/// la app de mensajes. Formato del SMS: `AS|<idhilo>|<texto>`.
+/// Sin internet, el chat envía el mensaje por SMS desde el número y saldo del propio usuario
+/// al número del contacto, SIN abrir la app de mensajes y SIN pasar por ningún servidor
+/// (ni Twilio): llega en segundos solo con señal móvil. Por defecto es un SMS de datos oculto
+/// (ver sms_protocolo.dart); en modo texto el formato es `AS|<idhilo>|<texto>`.
 /// Los SMS entrantes con ese formato se guardan en el celular y se muestran en el
 /// mismo chat. Al volver el internet, lo enviado por SMS se sube al servidor.
 class SmsService {
@@ -168,8 +170,18 @@ class SmsService {
       rethrow;
     } catch (_) {}
 
+    // Un id por mensaje: viaja dentro del SMS de datos y es el `idcliente` en el servidor,
+    // así el que envía y el que recibe reconocen el mismo mensaje cuando vuelve el internet.
+    final idmsg = Random().nextInt(0x100000000);
     if (await soloDatos()) {
-      await _enviarDatos(tel, idhilo, texto);
+      try {
+        await _enviarDatos(tel, idhilo, idmsg, texto);
+      } on _FalloDatos {
+        // Muchos operadores y celulares de doble SIM rechazan los SMS de datos aunque los
+        // normales sí salgan: se reintenta como SMS de texto y se recuerda para los siguientes.
+        await _enviarTexto(tel, idhilo, texto);
+        await fijarSoloDatos(false);
+      }
     } else {
       await _enviarTexto(tel, idhilo, texto);
     }
@@ -182,6 +194,7 @@ class SmsService {
       'sms': true,
       'pendiente': true, // falta subirlo al servidor
       'smsId': 'out-${DateTime.now().microsecondsSinceEpoch}',
+      'idcliente': idClienteSms(idhilo, idmsg),
     };
     await _agregarLocal(Api.i.cacheScope, idhilo, m);
     return m;
@@ -189,11 +202,11 @@ class SmsService {
 
   /// SMS de datos: sale por la línea móvil hacia el puerto de AgroSmart del otro celular.
   /// No pasa por la app de Mensajes, ni en el que envía ni en el que recibe.
-  Future<void> _enviarDatos(String tel, int idhilo, String texto) async {
+  Future<void> _enviarDatos(String tel, int idhilo, int idmsg, String texto) async {
     final destino = tel.replaceAll(RegExp(r'[^\d+]'), '');
     final List<Uint8List> partes;
     try {
-      partes = codificarSms(idhilo, Random().nextInt(0x100000000), texto);
+      partes = codificarSms(idhilo, idmsg, texto);
     } on FormatException {
       throw 'El mensaje es demasiado largo para enviarlo por SMS. Acórtalo.';
     }
@@ -208,7 +221,7 @@ class SmsService {
         throw 'Android no permite enviar SMS. Activa el permiso "Enviar SMS" para AgroSmart en Ajustes > Aplicaciones > Permisos.';
       }
       if (r == null || r['ok'] != true) {
-        throw 'No se pudo enviar el SMS. Revisa la señal móvil y el saldo de la SIM.';
+        throw _FalloDatos('${r?['codigo'] ?? r?['error'] ?? 'sin respuesta'}');
       }
     }
   }
@@ -232,7 +245,9 @@ class SmsService {
     // SMS corto: se exige la confirmación de Android. SMS largo (multiparte): el plugin a veces no
     // avisa, así que se da por enviado si no hubo error.
     final ok = await enviado.future.timeout(Duration(seconds: largo ? 4 : 10), onTimeout: () => false);
-    if (!ok && !largo) throw 'No se pudo enviar el SMS. Revisa la señal móvil y el saldo de la SIM.';
+    if (!ok && !largo) {
+      throw 'No se pudo enviar el SMS. Revisa que tengas señal y saldo para SMS. Si tu celular tiene dos SIM, elige en Ajustes > SIM cuál envía los SMS.';
+    }
   }
 
   /// Quita de lo local los SMS que el servidor ya tiene (evita duplicados).
@@ -241,13 +256,20 @@ class SmsService {
     final k = _k(Api.i.cacheScope, idhilo, 'msgs');
     final l = _leerLista(p, k);
     final antes = l.length;
-    l.removeWhere((m) =>
-        m['pendiente'] != true &&
-        servidor.any((s) => s['contenido'] == m['contenido'] && (s['mio'] == true) == (m['mio'] == true)));
+    final ids = {for (final s in servidor) if (s['idcliente'] != null) '${s['idcliente']}'};
+    l.removeWhere((m) {
+      if (m['pendiente'] == true) return false;
+      final id = m['idcliente'];
+      if (id != null) return ids.contains('$id');
+      // SMS de texto (sin id): se compara por contenido y autor
+      return servidor.any((s) => s['contenido'] == m['contenido'] && (s['mio'] == true) == (m['mio'] == true));
+    });
     if (l.length != antes) await p.setString(k, jsonEncode(l));
   }
 
   /// Sube al servidor lo que se envió por SMS mientras no había internet.
+  /// Usa /sincronizar: es seguro reintentar (no duplica) y el servidor guarda la hora real
+  /// del SMS. Devuelve cuántos mensajes quedaron registrados.
   Future<int> flushPendientes({int? idhilo}) async {
     final p = await _prefs();
     final scope = Api.i.cacheScope;
@@ -258,14 +280,42 @@ class SmsService {
     for (final id in ids) {
       final k = _k(scope, id, 'msgs');
       final l = _leerLista(p, k);
-      for (final m in l.where((m) => m['mio'] == true && m['pendiente'] == true).toList()) {
-        try {
-          await _mensajeria.enviar(id, '${m['contenido']}');
-          l.remove(m);
-          n++;
-        } on DioException catch (e) {
-          if (e.response == null) break; // sigue sin red
-          m['pendiente'] = false; // el servidor lo rechazó; queda solo como SMS
+      final pend = l.where((m) => m['mio'] == true && m['pendiente'] == true).toList();
+      if (pend.isEmpty) continue;
+
+      // Mensajes guardados antes de esta versión no tenían id: se les asigna uno y se guarda
+      // ANTES de enviar, para que un reintento use el mismo.
+      for (final m in pend) {
+        m['idcliente'] ??= idClienteSms(id, Random().nextInt(0x100000000));
+      }
+      await p.setString(k, jsonEncode(l));
+
+      final List<Map<String, dynamic>> res;
+      try {
+        res = await _mensajeria.sincronizar([
+          for (final m in pend)
+            {
+              'idcliente': m['idcliente'],
+              'idhilo': id,
+              'contenido': '${m['contenido']}',
+              'fecha': (DateTime.tryParse('${m['createdAt']}') ?? DateTime.now()).toUtc().toIso8601String(),
+              'canal': 'SMS', // el otro ya lo recibió por SMS: el servidor no lo reenvía
+            }
+        ]);
+      } on DioException catch (e) {
+        if (e.response == null) break; // sigue sin red: se intenta más tarde
+        continue; // error del servidor: se reintenta en la próxima sincronización
+      }
+
+      final estado = {for (final r in res) '${r['idcliente']}': '${r['estado']}'};
+      for (final m in pend) {
+        switch (estado['${m['idcliente']}']) {
+          case 'NUEVO':
+          case 'DUPLICADO':
+            l.remove(m); // ya está en el servidor; llegará con la lista de mensajes
+            n++;
+          case 'RECHAZADO':
+            m['pendiente'] = false; // queda solo como SMS en este celular
         }
       }
       await p.setString(k, jsonEncode(l));
@@ -273,6 +323,16 @@ class SmsService {
     return n;
   }
 }
+
+/// El operador o el celular rechazó el SMS de datos (se reintenta como SMS de texto).
+class _FalloDatos implements Exception {
+  final String detalle;
+  const _FalloDatos(this.detalle);
+}
+
+/// `idcliente` de un mensaje enviado por SMS. Lo calculan igual el que envía y el que recibe
+/// (a partir del id que viaja en el SMS de datos), así ambos lo reconocen en el servidor.
+String idClienteSms(int idhilo, int idmsg) => 'sms-$idhilo-${idmsg.toRadixString(16).padLeft(8, '0')}';
 
 // ---------------------------------------------------------------------------
 // Utilidades (también las usa el receptor en segundo plano).
@@ -374,6 +434,7 @@ Future<Map<String, dynamic>?> _procesarDatos(String address, Uint8List datos, in
     'createdAt': DateTime.fromMillisecondsSinceEpoch(ms).toIso8601String(),
     'sms': true,
     'smsId': 'in-${f.idmsg}-$origen',
+    'idcliente': idClienteSms(f.idhilo, f.idmsg),
     if (tel == null || origen != _digitos(tel)) 'sinVerificar': true,
   };
   if (!await _agregarLocal(scope, f.idhilo, m)) return null;
