@@ -6,9 +6,13 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cola_offline.dart';
 import 'demo/demo_data.dart';
+import 'secure_storage.dart';
 
 /// URL del backend. Prioridad: --dart-define=API_URL > la guardada en la app > local por defecto.
 const _envUrl = String.fromEnvironment('API_URL');
+const _authScheme = 'Bearer';
+const _httpsRequiredMessage =
+    'Las versiones de producción requieren una API HTTPS.';
 
 String defaultBaseUrl() {
   if (_envUrl.isNotEmpty) return _envUrl;
@@ -30,7 +34,16 @@ class Api {
   Api._() {
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (o, h) {
-        if (token != null) o.headers['Authorization'] = 'Bearer $token';
+        if (kReleaseMode && o.uri.scheme != 'https') {
+          return h.reject(DioException(
+            requestOptions: o,
+            type: DioExceptionType.badResponse,
+            message: _httpsRequiredMessage,
+          ));
+        }
+        if (token != null) {
+          o.headers['Authorization'] = '$_authScheme $token';
+        }
         h.next(o);
       },
       onError: (e, h) {
@@ -155,14 +168,13 @@ class Api {
 
   /// Modifica la copia guardada de un GET (sin parámetros) para que la pantalla refleje lo hecho
   /// sin red mientras la cola no se envía. Si no hay copia no hace nada.
-  Future<void> parchearCache(String path, dynamic Function(dynamic datos) cambiar) async {
-    final p = await SharedPreferences.getInstance();
+  Future<void> parchearCache(
+      String path, dynamic Function(dynamic datos) cambiar) async {
     final k = 'cache:$cacheScope:$path:{}';
-    final raw = p.getString(k);
+    final raw = await secureStorage.read(key: k);
     if (raw == null) return;
-    try {
-      await p.setString(k, jsonEncode(cambiar(jsonDecode(raw))));
-    } catch (_) {}
+    await secureStorage.write(
+        key: k, value: jsonEncode(cambiar(jsonDecode(raw))));
   }
 
   /// true si el backend rechazó la acción porque requiere el plan Premium.
@@ -174,6 +186,7 @@ class Api {
 
   static String errorMsg(Object e) {
     if (e is DioException) {
+      if (e.message == _httpsRequiredMessage) return _httpsRequiredMessage;
       final d = e.response?.data;
       if (esPremiumRequerido(e)) {
         return 'Esta función requiere el plan Premium. Puedes activarlo en Más › Plan y suscripción.';
@@ -212,9 +225,9 @@ class Api {
   String cacheScope = '';
 
   Future<void> clearCache() async {
-    final p = await SharedPreferences.getInstance();
-    for (final k in p.getKeys().where((k) => k.startsWith('cache:')).toList()) {
-      await p.remove(k);
+    final stored = await secureStorage.readAll();
+    for (final k in stored.keys.where((k) => k.startsWith('cache:'))) {
+      await secureStorage.delete(key: k);
     }
   }
 
@@ -295,8 +308,7 @@ class _OfflineInterceptor extends Interceptor {
   @override
   Future<void> onRequest(RequestOptions o, RequestInterceptorHandler h) async {
     if (_cacheable(o)) {
-      final p = await SharedPreferences.getInstance();
-      final raw = p.getString(_key(o));
+      final raw = await secureStorage.read(key: _key(o));
       if (raw != null) {
         // Hay copia guardada: no vale la pena esperar mucho al servidor.
         o.connectTimeout = const Duration(seconds: 6);
@@ -308,16 +320,13 @@ class _OfflineInterceptor extends Interceptor {
   }
 
   @override
-  void onResponse(Response r, ResponseInterceptorHandler h) {
+  Future<void> onResponse(Response r, ResponseInterceptorHandler h) async {
     if (r.extra['fromCache'] != true) {
       api.offline.value = false;
       final o = r.requestOptions;
       final ok = (r.statusCode ?? 0) >= 200 && (r.statusCode ?? 0) < 300;
       if (ok && _cacheable(o) && (r.data is Map || r.data is List)) {
-        try {
-          final s = jsonEncode(r.data);
-          SharedPreferences.getInstance().then((p) => p.setString(_key(o), s));
-        } catch (_) {}
+        await secureStorage.write(key: _key(o), value: jsonEncode(r.data));
       }
     }
     h.next(r);
@@ -329,8 +338,7 @@ class _OfflineInterceptor extends Interceptor {
     if (e.response != null || !_errRed.contains(e.type)) return h.next(e);
 
     if (_cacheable(o)) {
-      final p = await SharedPreferences.getInstance();
-      final raw = p.getString(_key(o));
+      final raw = await secureStorage.read(key: _key(o));
       if (raw != null) return h.resolve(_desdeCache(o, raw));
       return h.next(e);
     }

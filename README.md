@@ -8,9 +8,8 @@ al depurar por USB). Para configurar otro servidor, usa `--dart-define=API_URL=.
 ## Instalar
 1. `flutter create agrosmart_proto --org co.agrosmart`
 2. Copia `pubspec.yaml` y `lib/` encima del proyecto generado, luego `flutter pub get`.
-3. Android: en `android/app/src/main/AndroidManifest.xml` agrega
-   `<uses-permission android:name="android.permission.INTERNET"/>` y, para http local,
-   `android:usesCleartextTraffic="true"` dentro de `<application ...>`.
+3. Android: el permiso de Internet y la política de tráfico por variante ya están en el
+   manifiesto. HTTP solo se permite al depurar; los builds `release` requieren HTTPS.
 4. Backend: `npm run start:dev` (con su `.env`). Para depurar un celular físico por USB,
    conecta y autoriza el teléfono. En PowerShell, ejecuta `adb reverse tcp:3000 tcp:3000`
    si `adb` está en el PATH. Si PowerShell no reconoce `adb` y el SDK está en la ubicación
@@ -26,6 +25,46 @@ al depurar por USB). Para configurar otro servidor, usa `--dart-define=API_URL=.
    permite que esa dirección llegue al backend de la PC incluso si el teléfono no tiene
    Wi-Fi o datos. En el emulador Android, usa
    `--dart-define=API_URL=http://10.0.2.2:3000`. No uses `10.0.2.2` en un celular físico.
+
+## Seguridad móvil y build de producción
+
+- La sesión, los logins locales, la caché de respuestas, la cola offline y los metadatos de
+   adjuntos se guardan mediante `flutter_secure_storage` (Keystore/Keychain). Al abrir una
+   versión actualizada, los valores equivalentes de SharedPreferences se migran y se borran
+   después de confirmar su copia segura.
+- Android desactiva las copias de seguridad de la app. El tráfico HTTP solo está permitido
+   en `debug`; en `release` se rechaza HTTP tanto en la configuración nativa como en el
+   cliente API.
+- Los archivos de fotos/audio que esperan por conectividad todavía se guardan en el
+   directorio privado de la app, pero no se cifran individualmente. No instales una versión
+   con datos reales en un dispositivo compartido o rooteado mientras esto siga pendiente.
+- No publiques el APK de `debug`. Para un build de producción crea una clave propia y
+   configura el archivo local ignorado `android/key.properties` con `keyAlias`, `keyPassword`,
+   `storeFile` y `storePassword`. Nunca envíes el archivo de propiedades ni el keystore al
+   repositorio o al informe.
+
+Ejemplo para crear una clave en PowerShell (guárdala en un lugar seguro y haz una copia
+fuera del equipo):
+
+```powershell
+& "$env:JAVA_HOME\bin\keytool.exe" -genkeypair -v `
+   -keystore "$env:USERPROFILE\agrosmart-release.jks" `
+   -alias agrosmart -keyalg RSA -keysize 2048 -validity 10000
+```
+
+En `android/key.properties`, coloca los valores reales de esa clave. Para una ruta de
+Windows, escapa las barras invertidas en `storeFile`, por ejemplo:
+`storeFile=C:\\Users\\TU_USUARIO\\agrosmart-release.jks`.
+
+Compila indicando la URL HTTPS pública del backend:
+
+```powershell
+flutter build apk --release --dart-define=API_URL=https://TU_DOMINIO_API
+```
+
+La compilación `release` falla intencionalmente si no existe `android/key.properties`.
+En desarrollo local, continúa usando `flutter run` con HTTP y `adb reverse` como se indica
+arriba.
 
 ## Ver datos de ejemplo
 Para recorrer la app con datos ficticios de una finca, lotes, cultivos y cosechas sin

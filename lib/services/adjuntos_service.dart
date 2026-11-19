@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
+import 'secure_storage.dart';
 
 const _msj = '/api/v1/mensajeria';
 
@@ -38,7 +38,8 @@ class AdjuntosService {
       'tipo': tipo,
       if (duracionSeg != null) 'duracionSeg': duracionSeg.toString(),
       if (texto != null && texto.trim().isNotEmpty) 'contenido': texto.trim(),
-      'archivo': await MultipartFile.fromFile(path, filename: path.split(RegExp(r'[\\/]')).last),
+      'archivo': await MultipartFile.fromFile(path,
+          filename: path.split(RegExp(r'[\\/]')).last),
     });
     final r = await Api.i.dio.post(
       '$_msj/hilos/$idhilo/adjuntos',
@@ -47,7 +48,9 @@ class AdjuntosService {
       options: Options(
         sendTimeout: const Duration(seconds: 90),
         receiveTimeout: const Duration(seconds: 90),
-        extra: {'noQueue': true}, // los archivos no se encolan en la cola genérica
+        extra: {
+          'noQueue': true
+        }, // los archivos no se encolan en la cola genérica
       ),
     );
     return (r.data as Map).cast<String, dynamic>();
@@ -55,11 +58,13 @@ class AdjuntosService {
 
   // ── Pendientes (sin conexión) ──────────────────────────────────────────────
 
-  List<Map<String, dynamic>> _leer(SharedPreferences p, String k) {
-    final raw = p.getString(k);
+  Future<List<Map<String, dynamic>>> _leer(String k) async {
+    final raw = await secureStorage.read(key: k);
     if (raw == null) return [];
     try {
-      return (jsonDecode(raw) as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+      return (jsonDecode(raw) as List)
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
     } catch (_) {
       return [];
     }
@@ -67,20 +72,23 @@ class AdjuntosService {
 
   /// Adjuntos de este chat que aún no suben (con el formato de un mensaje del chat).
   Future<List<Map<String, dynamic>>> pendientes(int idhilo) async {
-    final p = await SharedPreferences.getInstance();
-    return _leer(p, _kLista(Api.i.cacheScope, idhilo));
+    return _leer(_kLista(Api.i.cacheScope, idhilo));
   }
 
   /// Guarda el archivo en el celular para enviarlo cuando vuelva la conexión.
-  Future<Map<String, dynamic>> encolar(int idhilo, {required String path, required String tipo, int? duracionSeg}) async {
+  Future<Map<String, dynamic>> encolar(int idhilo,
+      {required String path, required String tipo, int? duracionSeg}) async {
     final dir = await getApplicationDocumentsDirectory();
     final carpeta = Directory('${dir.path}/adjuntos_pendientes');
     if (!await carpeta.exists()) await carpeta.create(recursive: true);
     final punto = path.lastIndexOf('.');
-    final ext = punto > path.lastIndexOf(RegExp(r'[\\/]')) ? path.substring(punto) : (tipo == 'AUDIO' ? '.m4a' : '.jpg');
+    final ext = punto > path.lastIndexOf(RegExp(r'[\\/]'))
+        ? path.substring(punto)
+        : (tipo == 'AUDIO' ? '.m4a' : '.jpg');
     final id = DateTime.now().microsecondsSinceEpoch;
     final destino = '${carpeta.path}/$id$ext';
-    await File(path).copy(destino); // el archivo original puede estar en una carpeta temporal
+    await File(path).copy(
+        destino); // el archivo original puede estar en una carpeta temporal
 
     final item = <String, dynamic>{
       'idmensaje': null,
@@ -92,39 +100,44 @@ class AdjuntosService {
       'adjPend': true,
       'adjId': 'adj-$id',
     };
-    final p = await SharedPreferences.getInstance();
     final scope = Api.i.cacheScope;
-    final l = _leer(p, _kLista(scope, idhilo))..add(item);
-    await p.setString(_kLista(scope, idhilo), jsonEncode(l));
-    final ids = p.getStringList(_kHilos(scope)) ?? [];
-    if (!ids.contains('$idhilo')) await p.setStringList(_kHilos(scope), [...ids, '$idhilo']);
+    final l = await _leer(_kLista(scope, idhilo))
+      ..add(item);
+    await secureStorage.write(
+        key: _kLista(scope, idhilo), value: jsonEncode(l));
+    final rawIds = await secureStorage.read(key: _kHilos(scope));
+    final ids = rawIds == null
+        ? <String>[]
+        : (jsonDecode(rawIds) as List).cast<String>();
+    if (!ids.contains('$idhilo')) {
+      await secureStorage.write(
+          key: _kHilos(scope), value: jsonEncode([...ids, '$idhilo']));
+    }
     return item;
   }
 
   Future<void> descartar(int idhilo, String adjId) async {
-    final p = await SharedPreferences.getInstance();
     final k = _kLista(Api.i.cacheScope, idhilo);
-    final l = _leer(p, k);
+    final l = await _leer(k);
     for (final m in l.where((m) => m['adjId'] == adjId)) {
       try {
         await File('${m['path']}').delete();
       } catch (_) {}
     }
     l.removeWhere((m) => m['adjId'] == adjId);
-    await p.setString(k, jsonEncode(l));
+    await secureStorage.write(key: k, value: jsonEncode(l));
     _cambios.add(idhilo);
   }
 
   /// Vuelve a intentar uno que el servidor rechazó.
   Future<void> reintentar(int idhilo, String adjId) async {
-    final p = await SharedPreferences.getInstance();
     final k = _kLista(Api.i.cacheScope, idhilo);
-    final l = _leer(p, k);
+    final l = await _leer(k);
     for (final m in l.where((m) => m['adjId'] == adjId)) {
       m['fallo'] = false;
       m.remove('error');
     }
-    await p.setString(k, jsonEncode(l));
+    await secureStorage.write(key: k, value: jsonEncode(l));
     _cambios.add(idhilo);
     await flush(idhilo: idhilo);
   }
@@ -136,17 +149,22 @@ class AdjuntosService {
     _subiendo = true;
     var subidos = 0;
     try {
-      final p = await SharedPreferences.getInstance();
       final scope = Api.i.cacheScope;
+      final rawIds = await secureStorage.read(key: _kHilos(scope));
+      final storedIds = rawIds == null
+          ? <String>[]
+          : (jsonDecode(rawIds) as List).cast<String>();
       final ids = idhilo != null
           ? [idhilo]
-          : (p.getStringList(_kHilos(scope)) ?? []).map(int.tryParse).whereType<int>().toList();
+          : storedIds.map(int.tryParse).whereType<int>().toList();
       for (final id in ids) {
         final k = _kLista(scope, id);
-        final l = _leer(p, k);
+        final l = await _leer(k);
         var cambio = false;
         for (final m in l.toList()) {
-          if (m['fallo'] == true) continue; // espera que el usuario lo reintente o descarte
+          if (m['fallo'] == true) {
+            continue; // espera que el usuario lo reintente o descarte
+          }
           final path = '${m['path']}';
           if (!await File(path).exists()) {
             l.remove(m);
@@ -154,7 +172,10 @@ class AdjuntosService {
             continue;
           }
           try {
-            await subir(id, path: path, tipo: '${m['tipo']}', duracionSeg: (m['duracionSeg'] as num?)?.toInt());
+            await subir(id,
+                path: path,
+                tipo: '${m['tipo']}',
+                duracionSeg: (m['duracionSeg'] as num?)?.toInt());
             try {
               await File(path).delete();
             } catch (_) {}
@@ -164,7 +185,7 @@ class AdjuntosService {
           } on DioException catch (e) {
             if (e.response == null) {
               // Sigue sin conexión con el servidor: se guarda lo avanzado y se corta.
-              await p.setString(k, jsonEncode(l));
+              await secureStorage.write(key: k, value: jsonEncode(l));
               if (cambio) _cambios.add(id);
               return subidos;
             }
@@ -173,7 +194,7 @@ class AdjuntosService {
             cambio = true;
           }
         }
-        await p.setString(k, jsonEncode(l));
+        await secureStorage.write(key: k, value: jsonEncode(l));
         if (cambio) _cambios.add(id);
       }
     } finally {

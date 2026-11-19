@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/services/demo/demo_data.dart';
+import 'package:agrosmart_proto/services/secure_storage.dart';
 
 /// Instancia global de sesión (login → selección de finca → app).
 final session = Session();
@@ -68,8 +69,8 @@ class Session extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final p = await SharedPreferences.getInstance();
-    final raw = p.getString('session');
+    await migrateLegacyPrivateStorage();
+    final raw = await secureStorage.read(key: 'session');
     if (raw != null) _cargarGuardada(raw);
     ready = true;
     notifyListeners();
@@ -95,16 +96,15 @@ class Session extends ChangeNotifier {
   Future<void> _save() async {
     Api.i.cacheScope = '${usuario?['id']}_$idfinca';
     if (kDemoMode) return;
-    final p = await SharedPreferences.getInstance();
     final json = jsonEncode({
       'token': Api.i.token,
       'usuario': usuario,
       'idfinca': idfinca,
       'fincas': fincas,
     });
-    await p.setString('session', json);
+    await secureStorage.write(key: 'session', value: json);
     // Copia para poder volver a entrar sin internet después de cerrar sesión.
-    await _actualizarSesionLocal(p, json);
+    await _actualizarSesionLocal(json);
   }
 
   // ---- Inicio de sesión sin internet -------------------------------------
@@ -125,8 +125,8 @@ class Session extends ChangeNotifier {
     return base64Encode(d);
   }
 
-  List<Map<String, dynamic>> _leerLocales(SharedPreferences p) {
-    final raw = p.getString(_kLocales);
+  Future<List<Map<String, dynamic>>> _leerLocales() async {
+    final raw = await secureStorage.read(key: _kLocales);
     if (raw == null) return [];
     try {
       return (jsonDecode(raw) as List)
@@ -137,15 +137,14 @@ class Session extends ChangeNotifier {
     }
   }
 
-  Future<void> _guardarLocales(
-          SharedPreferences p, List<Map<String, dynamic>> l) =>
-      p.setString(_kLocales, jsonEncode(l));
+  Future<void> _guardarLocales(List<Map<String, dynamic>> l) =>
+      secureStorage.write(key: _kLocales, value: jsonEncode(l));
 
   Future<void> _guardarLocal(String email, String pass) async {
     final p = await SharedPreferences.getInstance();
     final em = email.trim().toLowerCase();
     final uid = usuario?['id'];
-    final l = _leerLocales(p)
+    final l = await _leerLocales()
       ..removeWhere(
           (e) => e['email'] == em || (uid != null && e['uid'] == uid));
     final salt = DateTime.now().microsecondsSinceEpoch.toString();
@@ -155,32 +154,31 @@ class Session extends ChangeNotifier {
       'nombre': nombreCompleto,
       'salt': salt,
       'hash': _hash(email, pass, salt),
-      'session': p.getString('session'),
+      'session': await secureStorage.read(key: 'session'),
       'ts': DateTime.now().millisecondsSinceEpoch,
     });
     // Solo se conservan las 2 cuentas más recientes.
     l.sort((a, b) => (b['ts'] as int).compareTo(a['ts'] as int));
-    await _guardarLocales(p, l.take(_maxLocales).toList());
+    await _guardarLocales(l.take(_maxLocales).toList());
     await p.remove('login_local'); // formato anterior (una sola cuenta)
     await p.remove('session_local');
   }
 
   /// Mantiene al día la copia de sesión de la cuenta actual (cambio de finca, etc.).
-  Future<void> _actualizarSesionLocal(SharedPreferences p, String json) async {
+  Future<void> _actualizarSesionLocal(String json) async {
     final uid = usuario?['id'];
     if (uid == null) return;
-    final l = _leerLocales(p);
+    final l = await _leerLocales();
     final e = l.where((x) => x['uid'] == uid).toList();
     if (e.isEmpty) return;
     e.first['session'] = json;
-    await _guardarLocales(p, l);
+    await _guardarLocales(l);
   }
 
   /// true si abrió la sesión guardada. Lanza un mensaje si la contraseña no coincide
   /// o si esa cuenta no ha iniciado sesión antes en este celular.
   Future<bool> _loginLocal(String email, String pass) async {
-    final p = await SharedPreferences.getInstance();
-    final l = _leerLocales(p);
+    final l = await _leerLocales();
     if (l.isEmpty) {
       throw 'Sin conexión a internet. La primera vez que inicias sesión en este celular necesitas conexión.';
     }
@@ -200,8 +198,8 @@ class Session extends ChangeNotifier {
     aviso = null;
     requiereSeleccionFinca = false;
     e['ts'] = DateTime.now().millisecondsSinceEpoch;
-    await _guardarLocales(p, l);
-    await p.setString('session', rawS);
+    await _guardarLocales(l);
+    await secureStorage.write(key: 'session', value: rawS);
     Api.i.offline.value = true;
     notifyListeners();
     return true;
@@ -332,11 +330,10 @@ class Session extends ChangeNotifier {
     idfinca = null;
     _fincaAnterior = null;
     fincas = [];
-    final p = await SharedPreferences.getInstance();
-    await p.remove('session');
+    await secureStorage.delete(key: 'session');
     // Con login local guardado se conservan los datos (están separados por usuario y finca)
     // para que, al volver a entrar sin internet, la app no quede vacía.
-    if (_leerLocales(p).isEmpty) await Api.i.clearCache();
+    if ((await _leerLocales()).isEmpty) await Api.i.clearCache();
     notifyListeners();
   }
 }
