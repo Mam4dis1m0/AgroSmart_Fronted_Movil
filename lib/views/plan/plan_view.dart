@@ -4,11 +4,15 @@ import 'package:agrosmart_proto/providers/session_provider.dart';
 import 'package:agrosmart_proto/services/api_client.dart';
 import 'package:agrosmart_proto/theme.dart';
 import 'package:agrosmart_proto/ui/design.dart';
+import 'package:agrosmart_proto/ui/imagen.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
 
 /// Plan de la finca (Freemium / Premium), suscripción y pagos.
 class PlanPage extends StatefulWidget {
-  const PlanPage({super.key});
+  const PlanPage({super.key, this.pendiente});
+
+  /// Pago Nequi que quedó a medias porque Android cerró la app al abrir la cámara.
+  final PagoNequiPendiente? pendiente;
   @override
   State<PlanPage> createState() => _PlanPageState();
 }
@@ -27,66 +31,71 @@ class _PlanPageState extends State<PlanPage> {
 
   void _recargar() => setState(() => _f = _load());
 
-  bool get _comprador => session.esComprador;
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.pendiente;
+    if (p != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pedirComprobanteYEnviar(p.referencia, p.renovar, recuperada: p.imagen);
+      });
+    }
+  }
 
-  Future<void> _contratar(Map<String, dynamic>? premium, Map<String, dynamic> metodos,
-      {bool renovar = false}) async {
-    final m = ScaffoldMessenger.of(context);
-    void aviso(String t) => m.showSnackBar(SnackBar(content: Text(t)));
-    final precio = premium == null ? '' : money(premium['preciomensual']);
-    final finca = s(session.fincaActiva['nombre']);
-    final nequi = (metodos['nequi'] as Map?)?.cast<String, dynamic>();
-
-    String metodo;
-    String? referencia;
-    String? comprobante;
-    if (nequi != null) {
-      // Paso 1: datos para transferir.
-      if (!await confirmar(
-          context,
-          'Transfiere ${precio.isEmpty ? 'el valor del plan' : precio} desde tu app Nequi a:\n\n'
-          '📱 ${s(nequi['numero'])}\n'
-          '👤 ${s(nequi['titular'])}\n\n'
-          'Cuando termines, toca «Ya transferí» y envía la referencia del comprobante.',
-          titulo: renovar ? 'Renovar Premium con Nequi' : 'Pagar Premium con Nequi',
-          ok: 'Ya transferí')) {
-        return;
-      }
+  /// Pide (o confirma) la foto del comprobante y envía el pago Nequi.
+  Future<void> _pedirComprobanteYEnviar(String referencia, bool renovar,
+      {ImagenElegida? recuperada}) async {
+    ImagenElegida? foto = recuperada;
+    while (true) {
       if (!mounted) return;
-      // Paso 2: referencia + foto del comprobante.
-      final r = await showForm(
-        context,
-        'Comprobante de Nequi',
-        const [
-          FieldDef('referencia', 'Referencia de la transferencia',
-              required: true,
-              minLength: 4,
-              helper: 'Aparece en el comprobante de Nequi (por ejemplo M1234567).'),
-          FieldDef('comprobante', 'Foto o captura del comprobante', type: FT.image),
-        ],
-        okLabel: 'Enviar',
+      final opcion = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Foto del comprobante'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Referencia: $referencia'),
+            const SizedBox(height: 12),
+            if (foto != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.memory(foto.bytes, height: 180, fit: BoxFit.cover),
+              )
+            else
+              const Text(
+                  'Adjunta una foto o captura de pantalla del comprobante de Nequi para confirmarlo más rápido.'),
+          ]),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'cancelar'),
+                child: const Text('Cancelar')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'foto'),
+                child: Text(foto == null ? 'Adjuntar foto' : 'Cambiar foto')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, 'enviar'),
+                child: Text(foto == null ? 'Enviar sin foto' : 'Enviar')),
+          ],
+        ),
       );
-      if (r == null) return;
-      metodo = 'NEQUI';
-      referencia = s(r['referencia']).trim();
-      comprobante = s(r['comprobante']);
-    } else if (metodos['simulado'] == true) {
-      if (!await confirmar(
-          context,
-          '${renovar ? 'Pagarás un mes más' : 'Activarás Premium'}${_comprador ? '' : ' para «$finca»'}'
-          '${precio.isEmpty ? '' : ' por $precio'}.\n\n'
-          'Modo de prueba: no se hace un cobro real.',
-          titulo: renovar ? '¿Renovar Premium?' : '¿Contratar Premium?',
-          ok: 'Continuar')) {
-        return;
-      }
-      metodo = 'SIMULADO';
-    } else {
-      aviso('Los pagos aún no están disponibles. Intenta más tarde.');
-      return;
+      if (!mounted || opcion == null || opcion == 'cancelar') return;
+      if (opcion == 'enviar') break;
+      // Si Android cierra la app con la cámara abierta, al volver se retoma aquí.
+      await guardarPagoNequiPendiente(referencia, renovar);
+      if (!mounted) return;
+      final img = await elegirImagen(context,
+          maxWidth: 1400, allowWebCamera: true, maxBytes: 5 * 1024 * 1024);
+      await limpiarPagoNequiPendiente();
+      if (img != null) foto = img;
     }
     if (!mounted) return;
+    await _enviar('NEQUI', referencia: referencia, comprobante: foto?.dataUrl, renovar: renovar);
+  }
 
+  Future<void> _enviar(String metodo,
+      {String? referencia, String? comprobante, bool renovar = false}) async {
+    final m = ScaffoldMessenger.of(context);
+    void aviso(String t) => m.showSnackBar(SnackBar(content: Text(t)));
     try {
       final r = _comprador
           ? await planService.contratarComprador(
@@ -105,7 +114,66 @@ class _PlanPageState extends State<PlanPage> {
     } catch (e) {
       aviso(Api.errorMsg(e));
     }
-    _recargar();
+    if (mounted) _recargar();
+  }
+
+  bool get _comprador => session.esComprador;
+
+  Future<void> _contratar(Map<String, dynamic>? premium, Map<String, dynamic> metodos,
+      {bool renovar = false}) async {
+    final m = ScaffoldMessenger.of(context);
+    void aviso(String t) => m.showSnackBar(SnackBar(content: Text(t)));
+    final precio = premium == null ? '' : money(premium['preciomensual']);
+    final finca = s(session.fincaActiva['nombre']);
+    final nequi = (metodos['nequi'] as Map?)?.cast<String, dynamic>();
+
+    String metodo;
+    if (nequi != null) {
+      // Paso 1: datos para transferir.
+      if (!await confirmar(
+          context,
+          'Transfiere ${precio.isEmpty ? 'el valor del plan' : precio} desde tu app Nequi a:\n\n'
+          '📱 ${s(nequi['numero'])}\n'
+          '👤 ${s(nequi['titular'])}\n\n'
+          'Cuando termines, toca «Ya transferí» y envía la referencia del comprobante.',
+          titulo: renovar ? 'Renovar Premium con Nequi' : 'Pagar Premium con Nequi',
+          ok: 'Ya transferí')) {
+        return;
+      }
+      if (!mounted) return;
+      // Paso 2: referencia (la foto se pide aparte para poder recuperarla).
+      final r = await showForm(
+        context,
+        'Comprobante de Nequi',
+        const [
+          FieldDef('referencia', 'Referencia de la transferencia',
+              required: true,
+              minLength: 4,
+              helper: 'Aparece en el comprobante de Nequi (por ejemplo M1234567). '
+                  'Puedes escribirla con o sin espacios.'),
+        ],
+        okLabel: 'Continuar',
+      );
+      if (r == null || !mounted) return;
+      await _pedirComprobanteYEnviar(s(r['referencia']).trim(), renovar);
+      return;
+    } else if (metodos['simulado'] == true) {
+      if (!await confirmar(
+          context,
+          '${renovar ? 'Pagarás un mes más' : 'Activarás Premium'}${_comprador ? '' : ' para «$finca»'}'
+          '${precio.isEmpty ? '' : ' por $precio'}.\n\n'
+          'Modo de prueba: no se hace un cobro real.',
+          titulo: renovar ? '¿Renovar Premium?' : '¿Contratar Premium?',
+          ok: 'Continuar')) {
+        return;
+      }
+      metodo = 'SIMULADO';
+    } else {
+      aviso('Los pagos aún no están disponibles. Intenta más tarde.');
+      return;
+    }
+    if (!mounted) return;
+    await _enviar(metodo, renovar: renovar);
   }
 
   /// Faltan 7 días o menos para que venza (se puede pagar el mes siguiente).

@@ -185,3 +185,64 @@ void _avisar(ScaffoldMessengerState? messenger, String mensaje) {
     messenger!.showSnackBar(SnackBar(content: Text(mensaje)));
   }
 }
+
+// ── Pago Nequi interrumpido por la cámara ───────────────────────────────────
+//
+// En Android el sistema puede cerrar la app mientras la cámara está abierta; al
+// volver arranca desde el inicio y la foto se pierde. Antes de abrir la cámara
+// se guarda el pago en curso y, al reabrir, se recupera junto con la foto.
+
+const _pagoNequiPendiente = 'pago_nequi_pendiente';
+
+class PagoNequiPendiente {
+  final String referencia;
+  final bool renovar;
+  final ImagenElegida? imagen;
+  const PagoNequiPendiente(this.referencia, this.renovar, this.imagen);
+}
+
+Future<void> guardarPagoNequiPendiente(String referencia, bool renovar) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_pagoNequiPendiente,
+      jsonEncode({'referencia': referencia, 'renovar': renovar}));
+}
+
+Future<void> limpiarPagoNequiPendiente() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove(_pagoNequiPendiente);
+}
+
+/// Devuelve el pago que quedó a medias (con la foto, si se pudo recuperar).
+Future<PagoNequiPendiente?> recuperarPagoNequiPendiente() async {
+  if (kIsWeb) return null;
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getString(_pagoNequiPendiente);
+  if (raw == null) return null;
+  await prefs.remove(_pagoNequiPendiente);
+  try {
+    final datos = (jsonDecode(raw) as Map).cast<String, dynamic>();
+    final referencia = (datos['referencia'] ?? '').toString();
+    if (referencia.isEmpty) return null;
+    ImagenElegida? imagen;
+    try {
+      final response = await ImagePicker().retrieveLostData();
+      final file = response.file ??
+          (response.files == null || response.files!.isEmpty
+              ? null
+              : response.files!.last);
+      if (file != null) {
+        final bytes = await file.readAsBytes();
+        if (bytes.lengthInBytes <= 5 * 1024 * 1024) {
+          final nombre = file.name.isEmpty ? 'foto.jpg' : file.name;
+          imagen = ImagenElegida(bytes, nombre, file.mimeType ?? _mime(nombre));
+        }
+      }
+    } catch (error) {
+      debugPrint('No se pudo recuperar la foto del comprobante: $error');
+    }
+    return PagoNequiPendiente(referencia, datos['renovar'] == true, imagen);
+  } catch (error) {
+    debugPrint('Pago Nequi pendiente ilegible: $error');
+    return null;
+  }
+}

@@ -5,6 +5,7 @@ import 'package:agrosmart_proto/services/contadores.dart';
 import 'package:agrosmart_proto/providers/session_provider.dart';
 import 'package:agrosmart_proto/theme.dart';
 import 'package:agrosmart_proto/ui/design.dart';
+import 'package:agrosmart_proto/ui/imagen.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
 import 'package:agrosmart_proto/views/avisos/avisos_view.dart';
 import 'package:agrosmart_proto/views/equipo/equipo_view.dart';
@@ -14,6 +15,7 @@ import 'package:agrosmart_proto/views/mensajes/bandeja_view.dart';
 import 'package:agrosmart_proto/views/mercado/mercado_view.dart';
 import 'package:agrosmart_proto/views/operacion/operacion_view.dart';
 import 'package:agrosmart_proto/views/perfil/perfil_view.dart';
+import 'package:agrosmart_proto/views/plan/plan_view.dart';
 import 'package:agrosmart_proto/views/produccion/produccion_view.dart';
 
 /// Pestañas de la navegación inferior.
@@ -109,6 +111,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     contadores.refrescar();
     _poll = Timer.periodic(
         const Duration(seconds: 60), (_) => contadores.refrescar());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _retomarPagoNequi());
+  }
+
+  /// Si Android cerró la app mientras se tomaba la foto del comprobante,
+  /// vuelve a la pantalla del plan con la referencia y la foto recuperadas.
+  Future<void> _retomarPagoNequi() async {
+    final p = await recuperarPagoNequiPendiente();
+    if (p == null || !mounted) return;
+    pushPage(context, 'Plan y suscripción', PlanPage(pendiente: p));
   }
 
   @override
