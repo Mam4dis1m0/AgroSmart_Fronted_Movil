@@ -51,6 +51,11 @@ class _VentasTabState extends State<VentasTab> {
               const Icon(Icons.person_outline, size: 16, color: AgroColors.textMuted),
               const SizedBox(width: 4),
               Expanded(child: Text(juntar([s(o['compradorNombre']), s(o['compradorTelefono'])]), style: AgroText.muted)),
+              if (o['compradorPremium'] == true)
+                const Tooltip(
+                  message: 'Comprador Premium',
+                  child: Icon(Icons.verified, size: 18, color: AgroColors.amber),
+                ),
             ]),
             const SizedBox(height: 6),
             InfoRow('Cantidad', '${cant(o['cantidad'])} ${s(o['unidad'])}'),

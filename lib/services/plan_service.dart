@@ -7,6 +7,39 @@ class PlanService {
     return [for (final r in rows) (r as Map).cast<String, dynamic>()];
   }
 
+  // ── Premium del comprador (por usuario) ──
+
+  /// GET /api/v1/comprador/suscripcion -> { plan, premium, premiumhasta }
+  /// Se devuelve con la misma forma que la suscripción de la finca para reutilizar la pantalla.
+  Future<Map<String, dynamic>> suscripcionComprador() async {
+    final r = await Api.i.dio.get('/api/v1/comprador/suscripcion');
+    final d = r.data is Map ? (r.data as Map).cast<String, dynamic>() : <String, dynamic>{};
+    final premium = d['premium'] == true;
+    return {
+      'planEfectivo': {'codigo': premium ? 'COMPRADOR_PREMIUM' : 'COMPRADOR_GRATIS'},
+      'suscripcion': premium ? {'fechafin': d['premiumhasta'], 'renovacionautomatica': false} : null,
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> pagosComprador() async {
+    final rows = await Api.i.getList('/api/v1/comprador/suscripcion/pagos');
+    return [for (final r in rows) (r as Map).cast<String, dynamic>()];
+  }
+
+  Future<Map<String, dynamic>> contratarComprador(
+      {String metodo = 'SIMULADO', String? referencia, String? comprobante}) async {
+    final r = await Api.i.dio.post('/api/v1/comprador/suscripcion/contratar', data: {
+      'metodo': metodo,
+      if (referencia != null) 'referencia': referencia,
+      if (comprobante != null && comprobante.isNotEmpty) 'comprobante': comprobante,
+    });
+    final data = r.data is Map ? (r.data as Map).cast<String, dynamic>() : {};
+    final pago = data['pago'] is Map
+        ? (data['pago'] as Map).cast<String, dynamic>()
+        : <String, dynamic>{'estado': 'APROBADO'};
+    return {...data, 'pago': pago};
+  }
+
   /// GET /api/v1/suscripcion -> { suscripcion: {...}|null, planEfectivo: { codigo, maxcultivos, ... } }
   Future<Map<String, dynamic>> suscripcion() async {
     final r = await Api.i.dio.get('/api/v1/suscripcion');

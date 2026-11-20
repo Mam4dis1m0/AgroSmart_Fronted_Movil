@@ -18,12 +18,16 @@ class _PlanPageState extends State<PlanPage> {
 
   Future<List<dynamic>> _load() => Future.wait<dynamic>([
         planService.planes(),
-        planService.suscripcion(),
-        planService.pagos().catchError((_) => <Map<String, dynamic>>[]),
+        // El comprador tiene su propio Premium (por usuario, no por finca)
+        _comprador ? planService.suscripcionComprador() : planService.suscripcion(),
+        (_comprador ? planService.pagosComprador() : planService.pagos())
+            .catchError((_) => <Map<String, dynamic>>[]),
         planService.metodosPago(),
       ]);
 
   void _recargar() => setState(() => _f = _load());
+
+  bool get _comprador => session.esComprador;
 
   Future<void> _contratar(Map<String, dynamic>? premium, Map<String, dynamic> metodos,
       {bool renovar = false}) async {
@@ -69,7 +73,7 @@ class _PlanPageState extends State<PlanPage> {
     } else if (metodos['simulado'] == true) {
       if (!await confirmar(
           context,
-          '${renovar ? 'Pagarás un mes más' : 'Activarás Premium'} para «$finca»'
+          '${renovar ? 'Pagarás un mes más' : 'Activarás Premium'}${_comprador ? '' : ' para «$finca»'}'
           '${precio.isEmpty ? '' : ' por $precio'}.\n\n'
           'Modo de prueba: no se hace un cobro real.',
           titulo: renovar ? '¿Renovar Premium?' : '¿Contratar Premium?',
@@ -84,12 +88,15 @@ class _PlanPageState extends State<PlanPage> {
     if (!mounted) return;
 
     try {
-      final r = await planService.contratar(
-          metodo: metodo, referencia: referencia, comprobante: comprobante);
+      final r = _comprador
+          ? await planService.contratarComprador(
+              metodo: metodo, referencia: referencia, comprobante: comprobante)
+          : await planService.contratar(
+              metodo: metodo, referencia: referencia, comprobante: comprobante);
       final estado = s((r['pago'] as Map)['estado']).toUpperCase();
       if (estado == 'APROBADO') {
         aviso(renovar ? '¡Listo! Sumamos un mes más a tu Premium.' : '¡Premium activado!');
-        await session.actualizarFincaActiva({'plan': 'PREMIUM'});
+        if (!_comprador) await session.actualizarFincaActiva({'plan': 'PREMIUM'});
       } else {
         aviso(s(r['mensaje']).isEmpty
             ? 'Recibimos tu comprobante. Activaremos Premium al confirmarlo.'
@@ -138,8 +145,8 @@ class _PlanPageState extends State<PlanPage> {
         final sus = (info['suscripcion'] as Map?)?.cast<String, dynamic>();
         final efectivo = (info['planEfectivo'] as Map?)?.cast<String, dynamic>() ?? const {};
         final codigo = s(efectivo['codigo']).toUpperCase();
-        final esPremium = codigo == 'PREMIUM';
-        final premium = planes.where((p) => s(p['codigo']).toUpperCase() == 'PREMIUM').firstOrNull;
+        final esPremium = codigo.endsWith('PREMIUM');
+        final premium = planes.where((p) => s(p['codigo']).toUpperCase().endsWith('PREMIUM')).firstOrNull;
 
         return RefreshIndicator(
           onRefresh: () async {
@@ -155,7 +162,7 @@ class _PlanPageState extends State<PlanPage> {
                 Row(children: [
                   Icon(esPremium ? Icons.workspace_premium : Icons.eco, color: esPremium ? AgroColors.amber : AgroColors.mint),
                   const SizedBox(width: 8),
-                  Flexible(child: Text(esPremium ? 'Premium' : 'Freemium', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
+                  Flexible(child: Text(esPremium ? 'Premium' : (_comprador ? 'Gratis' : 'Freemium'), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
                 ]),
                 if (sus != null && esPremium) ...[
                   const SizedBox(height: 6),
@@ -164,6 +171,7 @@ class _PlanPageState extends State<PlanPage> {
                     style: const TextStyle(color: AgroColors.mintPale, fontWeight: FontWeight.w600),
                   ),
                 ],
+                if (!_comprador) ...[
                 const SizedBox(height: 12),
                 Row(children: [
                   AgroHeroStat(label: 'Cultivos', value: _limite(efectivo['maxcultivos'])),
@@ -172,6 +180,7 @@ class _PlanPageState extends State<PlanPage> {
                   const SizedBox(width: 8),
                   AgroHeroStat(label: 'Comisión', value: '${cant(efectivo['comisionmarketplace'])}%'),
                 ]),
+                ],
               ]),
             ),
             const SizedBox(height: 18),
@@ -193,6 +202,11 @@ class _PlanPageState extends State<PlanPage> {
                       Text(s(p['descripcion']), style: AgroText.muted),
                     ],
                     const SizedBox(height: 8),
+                    if (_comprador)
+                      Wrap(spacing: 6, runSpacing: 6, children: [
+                        for (final b in _beneficiosComprador(p)) _chip(b.key, b.value),
+                      ])
+                    else
                     Wrap(spacing: 6, runSpacing: 6, children: [
                       _chip(Icons.grass, 'Cultivos: ${_limite(p['maxcultivos'])}'),
                       _chip(Icons.group, 'Empleados: ${_limite(p['maxempleados'])}'),
@@ -230,6 +244,7 @@ class _PlanPageState extends State<PlanPage> {
                 ),
                 const SizedBox(height: 8),
               ],
+              if (!_comprador)
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(foregroundColor: AgroColors.danger, side: const BorderSide(color: AgroColors.danger, width: 1.5)),
                 icon: const Icon(Icons.cancel_outlined),
@@ -273,6 +288,22 @@ class _PlanPageState extends State<PlanPage> {
   static String _capital(String t) {
     final x = t.replaceAll('_', ' ').toLowerCase();
     return x[0].toUpperCase() + x.substring(1);
+  }
+
+  /// Beneficios del plan de comprador según sus funciones.
+  List<MapEntry<IconData, String>> _beneficiosComprador(Map<String, dynamic> p) {
+    final f = (p['funciones'] as Map?) ?? const {};
+    if (f['early_access'] != true) {
+      return const [
+        MapEntry(Icons.storefront, 'Compra en el Marketplace'),
+        MapEntry(Icons.place, 'Alertas de ofertas cercanas'),
+      ];
+    }
+    return const [
+      MapEntry(Icons.bolt, 'Ve ofertas nuevas antes'),
+      MapEntry(Icons.notifications_active, 'Alerta al instante'),
+      MapEntry(Icons.verified, 'Comprador Premium'),
+    ];
   }
 
   Widget _chip(IconData i, String t) => Container(

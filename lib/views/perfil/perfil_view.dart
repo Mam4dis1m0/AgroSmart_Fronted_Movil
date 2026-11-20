@@ -7,6 +7,7 @@ import 'package:agrosmart_proto/ui/design.dart';
 import 'package:agrosmart_proto/ui/imagen.dart';
 import 'package:agrosmart_proto/ui/shell.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
+import 'package:agrosmart_proto/views/plan/plan_view.dart';
 
 /// Perfil del usuario: foto, datos, contraseña y (comprador) ubicación y alertas.
 class PerfilPage extends StatefulWidget {
@@ -173,6 +174,12 @@ class _PerfilPageState extends State<PerfilPage> {
             _accion(Icons.edit, 'Editar datos', 'Nombre, teléfono y cédula', () => _editar(u)),
             _accion(Icons.lock, 'Cambiar contraseña', 'Usa al menos 6 caracteres', _contrasena),
             if (session.esComprador) ...[
+              const SizedBox(height: 10),
+              const AgroSectionHeader('Mi plan'),
+              const SizedBox(height: 8),
+              _accion(Icons.workspace_premium, 'Premium para compradores',
+                  'Ve ofertas antes que nadie y recibe alertas al instante',
+                  () => pushPage(context, 'Mi plan', const PlanPage())),
               const SizedBox(height: 10),
               const AgroSectionHeader('Alertas de ofertas cercanas'),
               const SizedBox(height: 8),
