@@ -1092,9 +1092,15 @@ class TabsPage extends StatelessWidget {
               for (final t in tabs.keys)
                 Tab(
                   height: 44,
-                  icon:
-                      tabIcons[t] == null ? null : Icon(tabIcons[t], size: 18),
-                  text: t,
+                  // FittedBox evita la franja amarilla con letra grande del sistema.
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      if (tabIcons[t] != null) Icon(tabIcons[t], size: 18),
+                      if (tabIcons[t] != null) const SizedBox(height: 2),
+                      Text(t),
+                    ]),
+                  ),
                 )
             ],
           ),

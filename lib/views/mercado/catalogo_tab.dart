@@ -477,15 +477,19 @@ class _MarketplaceHero extends StatelessWidget {
                           const Icon(Icons.wb_sunny_rounded,
                               color: AgroColors.lime, size: 14),
                           const SizedBox(width: 5),
-                          Text(
-                            onPublish == null
-                                ? 'MERCADO AGROSMART'
-                                : 'TU COSECHA TIENE VALOR',
-                            style: const TextStyle(
-                              color: AgroColors.mintPale,
-                              fontSize: 9,
-                              letterSpacing: 1,
-                              fontWeight: FontWeight.w800,
+                          Flexible(
+                            child: Text(
+                              onPublish == null
+                                  ? 'MERCADO AGROSMART'
+                                  : 'TU COSECHA TIENE VALOR',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AgroColors.mintPale,
+                                fontSize: 9,
+                                letterSpacing: 1,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ],

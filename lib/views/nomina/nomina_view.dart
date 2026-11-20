@@ -111,9 +111,14 @@ class _NominaDetallePageState extends State<NominaDetallePage> {
     final cambioDeducciones = n(r['deducciones']) != n(d['deducciones']);
     if (!cambioUnidades && !cambioDeducciones) return;
     if (await run(context, () async {
-      // Primero los días: el bruto nuevo puede ser menor o mayor que el anterior y las deducciones deben caber en él
+      // Las deducciones deben caber en el bruto en cada paso: si bajan se ajustan primero
+      // (caben en el bruto actual); si suben, después de recalcular los días.
+      final bajanDeducciones = cambioDeducciones && n(r['deducciones']) < n(d['deducciones']);
+      if (bajanDeducciones) await nominaService.ajustarDeducciones(id, r['deducciones'] as num);
       if (cambioUnidades) await nominaService.ajustarUnidades(id, r['unidades'] as num);
-      if (cambioDeducciones) await nominaService.ajustarDeducciones(id, r['deducciones'] as num);
+      if (cambioDeducciones && !bajanDeducciones) {
+        await nominaService.ajustarDeducciones(id, r['deducciones'] as num);
+      }
     }, ok: 'Pago actualizado')) {
       _recargar();
     }
@@ -229,6 +234,8 @@ class _NominaDetallePageState extends State<NominaDetallePage> {
                         ],
                         InfoRow('Bruto', money(d['bruto'])),
                         InfoRow('Deducciones', '- ${money(d['deducciones'])}'),
+                        InfoRow('Neto a pagar', money(d['neto']), strong: true),
+                        _TareasDelPago(d),
                       ]),
                     ),
                   ),
@@ -237,6 +244,75 @@ class _NominaDetallePageState extends State<NominaDetallePage> {
           }(),
         );
       },
+    );
+  }
+}
+
+/// Desglose del pago de un empleado por tarea: qué hizo, cuándo, horas, cosecha y cuánto del pago
+/// corresponde a cada tarea (cada día trabajado se reparte entre las tareas de ese día).
+class _TareasDelPago extends StatelessWidget {
+  final Map<String, dynamic> d;
+  const _TareasDelPago(this.d);
+
+  @override
+  Widget build(BuildContext context) {
+    final tareas = [for (final t in (d['tareas'] as List?) ?? const []) (t as Map).cast<String, dynamic>()];
+    final sinTarea = n(d['pagosintarea']);
+    if (d['tareas'] == null) return const SizedBox.shrink(); // servidor anterior sin desglose
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: 4),
+        title: Text('Pago por tarea (${tareas.length})', style: AgroText.title.copyWith(fontSize: 14)),
+        subtitle: tareas.isEmpty
+            ? const Text('Sin tareas registradas en el período', style: AgroText.muted)
+            : null,
+        children: [
+          for (final t in tareas) _tarea(t),
+          if (sinTarea > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: InfoRow(
+                tareas.isEmpty ? 'Pago del período (sin tareas)' : 'Sin tarea asociada',
+                money(sinTarea),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tarea(Map<String, dynamic> t) {
+    final dias = [for (final x in (t['dias'] as List?) ?? const []) fecha(x)];
+    final cosechas = [for (final c in (t['cosechas'] as List?) ?? const []) (c as Map).cast<String, dynamic>()];
+    final cosecha = cosechas.isEmpty
+        ? ''
+        : juntar([for (final c in cosechas) '${cant(c['cantidad'])} ${s(c['unidad'])}']);
+    final donde = juntar([s(t['cultivo']), s(t['lote']), s(t['etapa'])]);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: AgroColors.neutralBg, borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Text(s(t['tipoactividad']).isEmpty ? 'Tarea #${s(t['idtarea'])}' : s(t['tipoactividad']),
+                style: AgroText.title.copyWith(fontSize: 14)),
+          ),
+          if (s(t['estado']).isNotEmpty) StatusBadge(s(t['estado']).toLowerCase()),
+        ]),
+        if (donde.isNotEmpty) Text(donde, style: AgroText.muted),
+        const SizedBox(height: 6),
+        InfoRow('Días que cuenta', dias.isEmpty ? '—' : dias.join(', ')),
+        if (t['fechainicio'] != null) InfoRow('Inició', fecha(t['fechainicio'], hora: true)),
+        if (t['fechafin'] != null) InfoRow('Terminó', fecha(t['fechafin'], hora: true)),
+        if (n(t['horas']) > 0) InfoRow('Horas registradas', cant(t['horas'])),
+        if (t['pagoacordado'] != null) InfoRow('Pago acordado en la tarea', money(t['pagoacordado'])),
+        if (cosecha.isNotEmpty) InfoRow('Cosechó', cosecha),
+        InfoRow('Pago por esta tarea', money(t['pago']), strong: true),
+      ]),
     );
   }
 }

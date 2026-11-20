@@ -712,7 +712,19 @@ class AgroListCard extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) ...[const SizedBox(width: 4), trailing!] else
+          if (trailing != null) ...[
+            const SizedBox(width: 4),
+            // Limita el ancho del lado derecho para que el título no se desborde.
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.45),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: trailing!,
+              ),
+            ),
+          ] else
             const SizedBox(width: 8),
         ],
       ),
@@ -841,7 +853,8 @@ class AgroEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    // Desplazable para que en pantallas bajas no aparezca la franja amarilla.
+    return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         AgroIconTile(

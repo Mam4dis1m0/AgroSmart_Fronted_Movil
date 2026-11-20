@@ -8,7 +8,6 @@ import 'package:agrosmart_proto/services/socket_service.dart';
 import 'package:agrosmart_proto/theme.dart';
 import 'package:agrosmart_proto/ui/design.dart';
 import 'package:agrosmart_proto/ui/widgets.dart';
-import 'chat_widgets.dart';
 import 'hilo_view.dart';
 
 Future<void> abrirBandeja(BuildContext c) =>

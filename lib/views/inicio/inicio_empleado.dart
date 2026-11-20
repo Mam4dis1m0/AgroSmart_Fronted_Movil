@@ -434,15 +434,25 @@ class _EmpleadoInicioPageState extends State<EmpleadoInicioPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              StatusBadge(_est(t)),
-              if (t.evidencias > 0) ...[
-                const SizedBox(width: 6),
-                const Icon(Icons.photo_camera_outlined,
-                    size: 16, color: AgroColors.primary),
-                const SizedBox(width: 4),
-                Text('${t.evidencias}', style: AgroText.muted),
-              ],
-              const Spacer(),
+              // Se encoge en pantallas angostas o con letra grande en vez de desbordar.
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      StatusBadge(_est(t)),
+                      if (t.evidencias > 0) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.photo_camera_outlined,
+                            size: 16, color: AgroColors.primary),
+                        const SizedBox(width: 4),
+                        Text('${t.evidencias}', style: AgroText.muted),
+                      ],
+                    ]),
+                  ),
+                ),
+              ),
               if (tieneAsig) ...[
                 const Icon(Icons.timer_outlined,
                     size: 16, color: AgroColors.primary),

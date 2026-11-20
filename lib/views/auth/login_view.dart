@@ -392,14 +392,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: AgroColors.primaryLight,
                                 ),
                                 SizedBox(width: 9),
-                                Text(
-                                  'HECHO PARA EL CAMPO',
-                                  style: TextStyle(
-                                    fontFamily: kAgroFont,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.1,
-                                    color: AgroColors.primary,
+                                Flexible(
+                                  child: Text(
+                                    'HECHO PARA EL CAMPO',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: kAgroFont,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.1,
+                                      color: AgroColors.primary,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -586,8 +590,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ],
                             const SizedBox(height: 14),
-                            Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                            Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   const Text('¿No tienes cuenta?',
                                       style: TextStyle(

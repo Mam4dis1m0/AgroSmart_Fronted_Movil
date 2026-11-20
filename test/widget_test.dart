@@ -256,7 +256,10 @@ void main() {
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
     expect(tabBar.tabs.first, isA<Tab>());
-    expect((tabBar.tabs.first as Tab).text, 'Guía');
+    expect(
+        find.descendant(
+            of: find.byWidget(tabBar.tabs.first), matching: find.text('Guía')),
+        findsOneWidget);
     expect(find.byIcon(Icons.help_outline), findsOneWidget);
     expect(find.text('Ayuda de cultivos'), findsOneWidget);
   });

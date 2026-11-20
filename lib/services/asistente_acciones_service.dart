@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'api_client.dart';
 
 /// Prepara y ejecuta operaciones confirmadas por el usuario.
